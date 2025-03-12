@@ -12,9 +12,9 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
   int _indiceSeleccionado = 0;
 
   final List<Widget> _pantallas = [
-    PantallaInicio(),   // ← Tu catálogo de productos
-    PantallaPedidos(),  // ← Sección de pedidos
-    PantallaPerfil(),   // ← Perfil del usuario
+    PantallaInicio(),   //  Catálogo de productos
+    PantallaPedidos(),  //  Sección de pedidos
+    PantallaPerfil(),   //  Perfil del usuario
   ];
 
   void _cambiarIndice(int index) {

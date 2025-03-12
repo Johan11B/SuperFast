@@ -20,7 +20,7 @@ class WelcomeScreen extends StatelessWidget {
                       color: Colors.black, // Color del borde
                       width: 10.0, // Grosor del borde
                     ),
-                    borderRadius: BorderRadius.circular(12.0), // Opcional: bordes redondeados
+                    borderRadius: BorderRadius.circular(12.0), // bordes
                   ),
                   padding: const EdgeInsets.all(8.0), // Espacio entre la imagen y el borde
                   child: Image.asset(
@@ -81,7 +81,6 @@ class WelcomeScreen extends StatelessWidget {
                 // Botón Registrarse
                 TextButton(
                   onPressed: () {
-                    // Aquí puedes agregar la navegación al registro
                   },
                   child: Text(
                     '¿No tienes cuenta? Regístrate aquí',
