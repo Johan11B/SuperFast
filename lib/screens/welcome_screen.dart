@@ -13,10 +13,20 @@ class WelcomeScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
-                Image.asset(
-                  'assets/logoSuper.jpeg', // Asegúrate que esta imagen esté en la carpeta assets
-                  height: 180,
+                // Logo con borde negro
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.black, // Color del borde
+                      width: 10.0, // Grosor del borde
+                    ),
+                    borderRadius: BorderRadius.circular(12.0), // Opcional: bordes redondeados
+                  ),
+                  padding: const EdgeInsets.all(8.0), // Espacio entre la imagen y el borde
+                  child: Image.asset(
+                    'assets/logoSuper.png',
+                    height: 180,
+                  ),
                 ),
                 SizedBox(height: 30),
 
@@ -46,7 +56,6 @@ class WelcomeScreen extends StatelessWidget {
                 // Botón Iniciar Sesión
                 ElevatedButton(
                   onPressed: () {
-                    // Al presionar, va al menú principal
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -69,10 +78,10 @@ class WelcomeScreen extends StatelessWidget {
 
                 SizedBox(height: 20),
 
-                // Botón Registrarse (a futuro puedes conectarlo)
+                // Botón Registrarse
                 TextButton(
                   onPressed: () {
-                    // Puedes navegar a pantalla de registro aquí
+                    // Aquí puedes agregar la navegación al registro
                   },
                   child: Text(
                     '¿No tienes cuenta? Regístrate aquí',
