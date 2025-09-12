@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/welcome_screen.dart'; // Importamos la pantalla de bienvenida
+import 'screens/PantalladeBienvenida.dart'; // Importamos la pantalla de bienvenida
 
 void main() {
   runApp(SuperFastApp());
@@ -14,7 +14,7 @@ class SuperFastApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: WelcomeScreen(),
+      home: PantalladeBienvenida(),
     );
   }
 }

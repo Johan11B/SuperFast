@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'menu_principal.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class PantalladeBienvenida extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
