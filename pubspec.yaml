@@ -27,4 +27,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.jpg
+    - assets/logo_panel.jpg
 
