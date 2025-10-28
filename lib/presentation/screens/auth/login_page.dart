@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import '../services/google_signin_service.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../admin/admin_panel.dart';
 import 'register_page.dart';
-import 'admin_panel.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,46 +14,70 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final authService = AuthService();
-  final googleService = GoogleSignInService();
 
-  void login() async {
-    final user = await authService.login(
-        emailController.text.trim(), passwordController.text.trim());
-    if (user != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminPanel()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error al iniciar sesión")));
-    }
-  }
-
-  void loginGoogle() async {
-    final user = await googleService.signInWithGoogle();
-    if (user != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminPanel()),
-      );
-    }
-  }
-
-  // Define el color de fondo de la aplicación (#008C9E)
   final Color backgroundColor = const Color(0xFF008C9E);
-  // Define un color de acento azul para el logo (si se necesitara para algo más)
   final Color primaryColor = const Color(0xFF1E88E5);
 
   @override
+  void initState() {
+    super.initState();
+    // Inicializar listener de autenticación
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthViewModel>().initializeAuthListener();
+    });
+  }
+
+  void _login() async {
+    final authViewModel = context.read<AuthViewModel>();
+
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Por favor, completa todos los campos"))
+      );
+      return;
+    }
+
+    final success = await authViewModel.login(
+        emailController.text.trim(),
+        passwordController.text.trim()
+    );
+
+    if (success && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminPanel()),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authViewModel.errorMessage))
+      );
+    }
+  }
+
+  void _loginGoogle() async {
+    final authViewModel = context.read<AuthViewModel>();
+    final success = await authViewModel.loginWithGoogle();
+
+    if (success && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminPanel()),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authViewModel.errorMessage))
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // El widget Scaffold se envuelve en un Container para el borde negro
+    final authViewModel = context.watch<AuthViewModel>();
+
     return Container(
-      color: Colors.black, // Borde exterior negro
-      padding: const EdgeInsets.all(8.0), // Simula el margen exterior
+      color: Colors.black,
+      padding: const EdgeInsets.all(8.0),
       child: Scaffold(
-        // Cambia el color de fondo al valor hexadecimal #008C9E
         backgroundColor: backgroundColor,
         body: Center(
           child: SingleChildScrollView(
@@ -65,12 +89,11 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.only(bottom: 20),
                   child: Column(
                     children: [
-                      // Logo real con un Container para la forma y sombra
                       Container(
-                        width: 100, // Ancho del contenedor
-                        height: 100, // Alto del contenedor
+                        width: 100,
+                        height: 100,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20), // Borde redondeado
+                          borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.5),
@@ -79,15 +102,13 @@ class _LoginPageState extends State<LoginPage> {
                               offset: const Offset(0, 3),
                             ),
                           ],
-                          // Aquí se carga la imagen del logo
                           image: const DecorationImage(
-                            image: AssetImage('assets/logo.jpg'), // ¡Tu imagen real!
-                            fit: BoxFit.cover, // Para que la imagen cubra el contenedor
+                            image: AssetImage('assets/logo.jpg'),
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
                       const SizedBox(height: 10),
-                      // Texto SuperFast
                       const Text(
                         "SuperFast",
                         style: TextStyle(
@@ -96,7 +117,6 @@ class _LoginPageState extends State<LoginPage> {
                             fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 5),
-                      // Texto de bienvenida
                       const Text(
                         "Bienvenido de nuevo",
                         style: TextStyle(
@@ -108,7 +128,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
 
-                // 2. Contenedor de Formulario (Email, Contraseña, Iniciar Sesión)
+                // 2. Contenedor de Formulario
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20.0),
                   padding: const EdgeInsets.all(20.0),
@@ -127,7 +147,6 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Campo Email
                       const Text("Email", style: TextStyle(color: Colors.black)),
                       const SizedBox(height: 5),
                       TextField(
@@ -144,7 +163,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 15),
 
-                      // Campo Contraseña
                       const Text("Contraseña", style: TextStyle(color: Colors.black)),
                       const SizedBox(height: 5),
                       TextField(
@@ -164,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
 
                       // Botón Iniciar sesión
                       ElevatedButton(
-                        onPressed: login,
+                        onPressed: authViewModel.isLoading ? null : _login,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: backgroundColor,
                           foregroundColor: Colors.white,
@@ -174,7 +192,16 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           elevation: 5,
                         ),
-                        child: const Text(
+                        child: authViewModel.isLoading
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                            : const Text(
                           "Iniciar sesión",
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -193,7 +220,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       // Botón de Registrarse
                       ElevatedButton(
-                        onPressed: () {
+                        onPressed: authViewModel.isLoading ? null : () {
                           Navigator.push(context,
                               MaterialPageRoute(builder: (_) => const RegisterPage()));
                         },
@@ -217,7 +244,7 @@ class _LoginPageState extends State<LoginPage> {
                       // Botón Iniciar con Google
                       ElevatedButton.icon(
                         icon: const Icon(Icons.mail_outline, size: 20),
-                        onPressed: loginGoogle,
+                        onPressed: authViewModel.isLoading ? null : _loginGoogle,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black87,
@@ -228,7 +255,16 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           elevation: 1,
                         ),
-                        label: const Text(
+                        label: authViewModel.isLoading
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                          ),
+                        )
+                            : const Text(
                           "Iniciar con Google",
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -243,5 +279,12 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 }

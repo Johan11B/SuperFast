@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import 'ajustes_page.dart';
-import 'login_page.dart'; // Asegúrate de tener este import si se necesita en otros lugares
-
-// -------------------------------------------------------------------------
-// CLASE PRINCIPAL: ADMIN PANEL
-// -------------------------------------------------------------------------
+import 'package:provider/provider.dart';
+import '../../viewmodels/admin_viewmodel.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../settings/ajustes_page.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -15,36 +12,26 @@ class AdminPanel extends StatefulWidget {
 }
 
 class _AdminPanelState extends State<AdminPanel> {
-  // Estado para la barra de navegación: 0 = "Inicio"
-  int _selectedIndex = 0;
-
-  // Lista de widgets de destino (Pestañas de la barra inferior)
-  static const List<Widget> _widgetOptions = <Widget>[
-    _AdminDashboardContent(), // 0: Contenido del Dashboard (Inicio)
-    Center(child: Text('Pantalla de Usuarios', style: TextStyle(fontSize: 30))),
-    Center(child: Text('Pantalla de Negocios', style: TextStyle(fontSize: 30))),
-    Center(child: Text('Pantalla de Pedidos', style: TextStyle(fontSize: 30))),
-    Center(child: Text('Pantalla de Reportes', style: TextStyle(fontSize: 30))),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  // Colores del diseño
   final Color primaryColor = const Color(0xFF008C9E);
   final Color scaffoldBackgroundColor = const Color(0xFFEFEFEF);
 
   @override
+  void initState() {
+    super.initState();
+    // Cargar datos del dashboard al iniciar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AdminViewModel>().loadDashboardData();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final adminViewModel = context.watch<AdminViewModel>();
 
     return Scaffold(
       backgroundColor: scaffoldBackgroundColor,
 
-      // 1. AppBar Personalizado (Encabezado)
+      // 1. AppBar Personalizado
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(80.0),
         child: Container(
@@ -53,7 +40,7 @@ class _AdminPanelState extends State<AdminPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // 1. Lado Izquierdo (Logo)
+              // Logo
               Row(
                 children: [
                   Container(
@@ -63,8 +50,8 @@ class _AdminPanelState extends State<AdminPanel> {
                       color: Colors.black,
                       borderRadius: BorderRadius.circular(8),
                       image: const DecorationImage(
-                         image: AssetImage('assets/logo_panel.jpg'),
-                         fit: BoxFit.cover,
+                        image: AssetImage('assets/logo_panel.jpg'),
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
@@ -72,9 +59,9 @@ class _AdminPanelState extends State<AdminPanel> {
                 ],
               ),
 
-              // 2. Título Centrado
+              // Título Centrado
               SizedBox(
-                width: screenWidth - 140,
+                width: MediaQuery.of(context).size.width - 140,
                 child: const Center(
                   child: Text(
                     "Panel\nAdministrativo",
@@ -89,11 +76,10 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ),
 
-              // 3. Icono de Ajustes (Navega a AjustesPage)
+              // Icono de Ajustes
               IconButton(
                 icon: const Icon(Icons.settings, color: Colors.white, size: 30),
                 onPressed: () {
-                  // *** CORRECCIÓN CLAVE: Usamos PUSH para mantener AdminPanel en la pila ***
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const AjustesPage()),
@@ -105,17 +91,19 @@ class _AdminPanelState extends State<AdminPanel> {
         ),
       ),
 
-      // Muestra el widget de contenido seleccionado
-      body: _widgetOptions.elementAt(_selectedIndex),
+      // Body con diferentes pantallas según el índice
+      body: adminViewModel.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _widgetOptions.elementAt(adminViewModel.selectedIndex),
 
-      // 4. Barra de Navegación Inferior (Funcional)
+      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: primaryColor,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white.withOpacity(0.7),
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        currentIndex: adminViewModel.selectedIndex,
+        onTap: (index) => adminViewModel.changeTab(index),
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [
@@ -128,12 +116,18 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
     );
   }
+
+  // Widgets para las diferentes pantallas
+  final List<Widget> _widgetOptions = <Widget>[
+    const _AdminDashboardContent(),
+    const Center(child: Text('Pantalla de Usuarios', style: TextStyle(fontSize: 30))),
+    const Center(child: Text('Pantalla de Negocios', style: TextStyle(fontSize: 30))),
+    const Center(child: Text('Pantalla de Pedidos', style: TextStyle(fontSize: 30))),
+    const Center(child: Text('Pantalla de Reportes', style: TextStyle(fontSize: 30))),
+  ];
 }
 
-// -------------------------------------------------------------------------
-// CLASE AUXILIAR 1: CONTENIDO DEL DASHBOARD (_AdminDashboardContent)
-// -------------------------------------------------------------------------
-
+// CONTENIDO DEL DASHBOARD
 class _AdminDashboardContent extends StatelessWidget {
   const _AdminDashboardContent();
 
@@ -141,30 +135,33 @@ class _AdminDashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final adminViewModel = context.watch<AdminViewModel>();
+    final stats = adminViewModel.getDashboardStats();
+    final activities = adminViewModel.getRecentActivity();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sección de Estadísticas (Tarjetas Simétricas)
+          // Sección de Estadísticas
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Usamos Expanded para asegurar la simetría
               Expanded(
                 child: _StatBox(
                   title: "Pedidos Activos",
-                  value: "45",
+                  value: stats['activeOrders'].toString(),
                   icon: Icons.arrow_upward,
                   color: Colors.green,
                   primaryColor: primaryColor,
                 ),
               ),
-              const SizedBox(width: 16), // Espacio entre tarjetas
+              const SizedBox(width: 16),
               Expanded(
                 child: _StatBox(
                   title: "Negocios Pendientes",
-                  value: "9",
+                  value: stats['pendingBusinesses'].toString(),
                   icon: Icons.arrow_downward,
                   color: Colors.red,
                   primaryColor: primaryColor,
@@ -180,11 +177,15 @@ class _AdminDashboardContent extends StatelessWidget {
             title: "Actividad reciente",
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text("Nuevo usuario: Ana S", style: TextStyle(fontSize: 16)),
-                SizedBox(height: 5),
-                Text("Negocio “Café Express” en revisión", style: TextStyle(fontSize: 16)),
-              ],
+              children: activities.map((activity) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    activity['message'],
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                );
+              }).toList(),
             ),
           ),
           const SizedBox(height: 20),
@@ -193,9 +194,9 @@ class _AdminDashboardContent extends StatelessWidget {
           _buildCard(
             context,
             title: "Alertas",
-            content: const Text(
-              "3 nuevos reportes pendientes",
-              style: TextStyle(fontSize: 16)
+            content: Text(
+                "${stats['pendingReports']} nuevos reportes pendientes",
+                style: const TextStyle(fontSize: 16)
             ),
           ),
         ],
@@ -203,7 +204,6 @@ class _AdminDashboardContent extends StatelessWidget {
     );
   }
 
-  // Helper para construir las tarjetas de Actividad y Alertas
   Widget _buildCard(BuildContext context, {required String title, required Widget content}) {
     return Container(
       width: double.infinity,
@@ -237,10 +237,8 @@ class _AdminDashboardContent extends StatelessWidget {
     );
   }
 }
-// -------------------------------------------------------------------------
-// CLASE AUXILIAR 2: CAJA DE ESTADÍSTICAS (_StatBox)
-// -------------------------------------------------------------------------
 
+// CAJA DE ESTADÍSTICAS
 class _StatBox extends StatelessWidget {
   final String title;
   final String value;
@@ -258,7 +256,6 @@ class _StatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // El ancho es manejado por Expanded en la clase padre
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -288,12 +285,12 @@ class _StatBox extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black87,
-                )
+                  value,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black87,
+                  )
               ),
               Container(
                 decoration: BoxDecoration(

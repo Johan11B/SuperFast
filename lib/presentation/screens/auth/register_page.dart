@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -14,64 +15,77 @@ class _RegisterPageState extends State<RegisterPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmController = TextEditingController();
-  final authService = AuthService();
-  bool _termsAccepted = false; // Estado para el Checkbox
+  bool _termsAccepted = false;
 
-  // Color principal de la aplicación (#008C9E) para el botón Registrarse
   final Color primaryColor = const Color(0xFF008C9E);
 
-  void register() async {
-    // Validar que los términos y condiciones estén aceptados
+  void _register() async {
+    final authViewModel = context.read<AuthViewModel>();
+
     if (!_termsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Debes aceptar los términos y condiciones")));
       return;
     }
 
-    if (passwordController.text == confirmController.text) {
-      final user = await authService.register(
-          emailController.text.trim(), passwordController.text.trim());
-      if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Error al registrarse")));
-      }
-    } else {
+    if (passwordController.text != confirmController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Las contraseñas no coinciden")));
+      return;
+    }
+
+    if (nameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Por favor, completa todos los campos")));
+      return;
+    }
+
+    final success = await authViewModel.register(
+        emailController.text.trim(),
+        passwordController.text.trim(),
+        nameController.text.trim()
+    );
+
+    if (success && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Registro exitoso. Ahora puedes iniciar sesión"))
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authViewModel.errorMessage))
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Se calcula una altura adecuada para el logo (por ejemplo, 140px)
+    final authViewModel = context.watch<AuthViewModel>();
     const double logoSize = 140.0;
 
     return Scaffold(
-      // Se ELIMINA el AppBar para quitar el texto "Registro"
       backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
-          // Padding vertical reducido y se utiliza SafeArea para manejar la barra de estado
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 1. Área superior: Logo (Ahora más grande y más arriba)
+                  // 1. Logo
                   Container(
                     width: logoSize,
                     height: logoSize,
-                    // Se reduce el margen superior al estar más arriba
                     margin: const EdgeInsets.only(bottom: 20, top: 20),
                     decoration: BoxDecoration(
                       color: Colors.black,
-                      borderRadius: BorderRadius.circular(25), // Bordes ligeramente más redondeados
+                      borderRadius: BorderRadius.circular(25),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.5),
@@ -80,16 +94,12 @@ class _RegisterPageState extends State<RegisterPage> {
                           offset: const Offset(0, 3),
                         ),
                       ],
-                      // Uso de Asset para el logo
                       image: const DecorationImage(
                         image: AssetImage('assets/logo.jpg'),
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
-
-                  // Separador para subir el formulario si es necesario
-                  // const SizedBox(height: 20),
 
                   // 2. Campos de texto
                   _buildTextField(nameController, "Nombre"),
@@ -101,7 +111,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildTextField(confirmController, "Confirmar contraseña", obscure: true),
                   const SizedBox(height: 20),
 
-                  // 3. Checkbox "términos y condiciones"
+                  // 3. Checkbox términos
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Row(
@@ -109,7 +119,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       children: [
                         Checkbox(
                           value: _termsAccepted,
-                          onChanged: (bool? newValue) {
+                          onChanged: authViewModel.isLoading ? null : (bool? newValue) {
                             setState(() {
                               _termsAccepted = newValue ?? false;
                             });
@@ -127,9 +137,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // 4. Botón Registrarse (Estilo Píldora)
+                  // 4. Botón Registrarse
                   ElevatedButton(
-                    onPressed: register,
+                    onPressed: authViewModel.isLoading ? null : _register,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
@@ -140,16 +150,25 @@ class _RegisterPageState extends State<RegisterPage> {
                       elevation: 10,
                       shadowColor: primaryColor.withOpacity(0.5),
                     ),
-                    child: const Text(
+                    child: authViewModel.isLoading
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                        : const Text(
                       "Registrarse",
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 20),
 
-                  // 5. ¿Ya tienes cuenta? Inicia sesión
+                  // 5. Enlace a login
                   TextButton(
-                    onPressed: () {
+                    onPressed: authViewModel.isLoading ? null : () {
                       Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const LoginPage()));
                     },
@@ -167,7 +186,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // Helper para construir los TextField con el estilo
   Widget _buildTextField(TextEditingController controller, String label, {bool obscure = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,5 +208,14 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmController.dispose();
+    super.dispose();
   }
 }
