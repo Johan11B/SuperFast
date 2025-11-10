@@ -1,4 +1,6 @@
+// lib/presentation/viewmodels/auth_viewmodel.dart
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import '../../core/utils/performance_manager.dart';
@@ -20,12 +22,14 @@ class AuthViewModel with ChangeNotifier {
   UserEntity? _currentUser;
   bool _isLoading = false;
   String _errorMessage = '';
-  bool _authListenerInitialized = false;
+  bool _isLoggingOut = false;
+  StreamSubscription<UserEntity?>? _authSubscription;
 
   UserEntity? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
+  bool get isLoggingOut => _isLoggingOut;
 
   void setLoading(bool value) {
     _isLoading = value;
@@ -34,6 +38,11 @@ class AuthViewModel with ChangeNotifier {
 
   void setErrorMessage(String value) {
     _errorMessage = value;
+    notifyListeners();
+  }
+
+  void setLoggingOut(bool value) {
+    _isLoggingOut = value;
     notifyListeners();
   }
 
@@ -156,13 +165,18 @@ class AuthViewModel with ChangeNotifier {
       'Complete Logout Process',
           () async {
         try {
+          setLoggingOut(true);
           setLoading(true);
+
           await authRepository.signOut();
+
           _currentUser = null;
           setLoading(false);
+          setLoggingOut(false);
         } catch (e) {
           setErrorMessage('Error al cerrar sesión: $e');
           setLoading(false);
+          setLoggingOut(false);
           rethrow;
         }
       },
@@ -194,16 +208,31 @@ class AuthViewModel with ChangeNotifier {
   }
 
   void initializeAuthListener() {
-    if (_authListenerInitialized) return;
+    if (_authSubscription != null) return;
 
-    _authListenerInitialized = true;
+    _authSubscription = authRepository.authStateChanges.listen(
+          (UserEntity? user) {
+        debugPrint('🔄 AuthListener - Usuario recibido: ${user?.email}');
 
-    authRepository.authStateChanges.listen((UserEntity? user) {
-      _currentUser = user;
-      notifyListeners();
-    }, onError: (error) {
-      print('❌ Error en auth listener: $error');
-    });
+        // Si estamos en proceso de logout, ignorar cambios temporales
+        if (_isLoggingOut && user != null) {
+          debugPrint('🔄 AuthListener - Ignorando usuario durante logout');
+          return;
+        }
+
+        _currentUser = user;
+        notifyListeners();
+      },
+      onError: (error) {
+        debugPrint('❌ Error en auth listener: $error');
+        setErrorMessage('Error en autenticación: $error');
+      },
+    );
   }
 
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
 }

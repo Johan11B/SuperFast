@@ -56,6 +56,7 @@ class UserDashboard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
+            heroTag: 'user_settings_fab', // ✅ TAG ÚNICO AGREGADO
             onPressed: () {
               Navigator.push(
                 context,
@@ -73,6 +74,7 @@ class UserDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           FloatingActionButton(
+            heroTag: 'user_info_fab', // ✅ TAG ÚNICO AGREGADO
             onPressed: () {
               _showUserInfo(context);
             },

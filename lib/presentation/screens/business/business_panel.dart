@@ -53,6 +53,7 @@ class BusinessPanel extends StatelessWidget {
 
       // Botón flotante adicional para acceso rápido a ajustes
       floatingActionButton: FloatingActionButton(
+        heroTag: 'business_panel_fab', // ✅ TAG ÚNICO AGREGADO
         onPressed: () {
           Navigator.push(
             context,

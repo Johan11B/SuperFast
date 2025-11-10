@@ -1,7 +1,8 @@
+// lib/presentation/screens/settings/ajustes_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
-import '../auth/login_page.dart';
+import '../auth/auth_wrapper.dart'; // ✅ IMPORT CORREGIDO
 import '../../../domain/entities/user_entity.dart';
 
 class AjustesPage extends StatelessWidget {
@@ -127,7 +128,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Gestión de Usuarios',
         subtitle: 'Administrar roles y permisos',
         onTap: () {
-          print('Navegar a gestión de usuarios');
+          debugPrint('Navegar a gestión de usuarios');
         },
       ),
       _buildSettingsItem(
@@ -135,7 +136,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Reportes y Estadísticas',
         subtitle: 'Ver métricas del sistema',
         onTap: () {
-          print('Navegar a reportes');
+          debugPrint('Navegar a reportes');
         },
       ),
       _buildSettingsItem(
@@ -143,7 +144,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Configuración de Seguridad',
         subtitle: 'Ajustes de permisos globales',
         onTap: () {
-          print('Navegar a seguridad');
+          debugPrint('Navegar a seguridad');
         },
       ),
 
@@ -174,7 +175,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Gestión de Productos',
         subtitle: 'Administrar catálogo',
         onTap: () {
-          print('Navegar a productos');
+          debugPrint('Navegar a productos');
         },
       ),
       _buildSettingsItem(
@@ -182,7 +183,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Pedidos y Ventas',
         subtitle: 'Ver historial de pedidos',
         onTap: () {
-          print('Navegar a pedidos');
+          debugPrint('Navegar a pedidos');
         },
       ),
       _buildSettingsItem(
@@ -190,7 +191,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Analíticas del Negocio',
         subtitle: 'Métricas de ventas y crecimiento',
         onTap: () {
-          print('Navegar a analíticas');
+          debugPrint('Navegar a analíticas');
         },
       ),
 
@@ -226,7 +227,7 @@ class AjustesPage extends StatelessWidget {
         title: 'Editar Perfil',
         subtitle: 'Actualizar información personal',
         onTap: () {
-          print('Navegar a editar perfil');
+          debugPrint('Navegar a editar perfil');
         },
       ),
       _buildSettingsItem(
@@ -371,6 +372,7 @@ class AjustesPage extends StatelessWidget {
     return InkWell(
       onTap: () async {
         final scaffoldMessenger = ScaffoldMessenger.of(context);
+        final authViewModel = context.read<AuthViewModel>();
 
         try {
           // Mostrar indicador de carga
@@ -387,18 +389,18 @@ class AjustesPage extends StatelessWidget {
             ),
           );
 
-          print('🚪 Iniciando proceso de logout...');
+          debugPrint('🚪 Iniciando proceso de logout desde ajustes...');
 
           // Cerrar sesión
-          await context.read<AuthViewModel>().logout();
+          await authViewModel.logout();
 
-          print('✅ Logout completado exitosamente');
+          debugPrint('✅ Logout completado desde ajustes');
 
           if (context.mounted) {
-            // Navegar al login y limpiar el stack
+            // ✅ CORREGIDO: Navegar al AuthWrapper para reiniciar completamente
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => const LoginPage()),
+              MaterialPageRoute(builder: (_) => const AuthWrapper()),
                   (Route<dynamic> route) => false,
             );
 
@@ -411,7 +413,7 @@ class AjustesPage extends StatelessWidget {
             );
           }
         } catch (e) {
-          print('❌ Error en logout: $e');
+          debugPrint('❌ Error en logout desde ajustes: $e');
 
           if (context.mounted) {
             scaffoldMessenger.showSnackBar(
