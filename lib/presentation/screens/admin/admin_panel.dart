@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../settings/ajustes_page.dart';
+import '../performance/performance_results_page.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -40,29 +41,23 @@ class _AdminPanelState extends State<AdminPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Logo
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(8),
-                      image: const DecorationImage(
-                        image: AssetImage('assets/logo_panel.jpg'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+              // Logo (Lado Izquierdo)
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                  image: const DecorationImage(
+                    image: AssetImage('assets/logo_panel.jpg'),
+                    fit: BoxFit.cover,
                   ),
-                  const SizedBox(width: 10),
-                ],
+                ),
               ),
 
               // Título Centrado
-              SizedBox(
-                width: MediaQuery.of(context).size.width - 140,
-                child: const Center(
+              const Expanded(
+                child: Center(
                   child: Text(
                     "Panel\nAdministrativo",
                     textAlign: TextAlign.center,
@@ -76,15 +71,37 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ),
 
-              // Icono de Ajustes
-              IconButton(
-                icon: const Icon(Icons.settings, color: Colors.white, size: 30),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AjustesPage()),
-                  );
-                },
+              // Iconos (Lado Derecho) - CORREGIDO
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icono de Analytics (Performance) - MÁS PEQUEÑO
+                  IconButton(
+                    icon: const Icon(Icons.analytics, color: Colors.white, size: 22),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PerformanceResultsPage()),
+                      );
+                    },
+                    tooltip: 'Rendimiento', // Texto al mantener presionado
+                  ),
+                  // Icono de Ajustes
+                  IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.white),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AjustesPage(
+                            userRole: 'admin',
+                            primaryColor: const Color(0xFF008C9E),
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                ],
               ),
             ],
           ),
@@ -300,10 +317,12 @@ class _StatBox extends StatelessWidget {
                 padding: const EdgeInsets.all(4),
                 child: Icon(icon, color: Colors.white, size: 20),
               ),
+
             ],
           ),
         ],
       ),
     );
   }
+
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
-import '../admin/admin_panel.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -42,32 +41,26 @@ class _LoginPageState extends State<LoginPage> {
         passwordController.text.trim()
     );
 
-    if (success && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminPanel()),
-      );
-    } else if (mounted) {
+    // ✅ CORREGIDO: No redirigir manualmente - el AuthWrapper se encarga
+    if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(authViewModel.errorMessage))
       );
     }
+    // Si es éxito, el AuthWrapper redirige automáticamente según el rol
   }
 
   void _loginGoogle() async {
     final authViewModel = context.read<AuthViewModel>();
     final success = await authViewModel.loginWithGoogle();
 
-    if (success && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminPanel()),
-      );
-    } else if (mounted) {
+    // ✅ CORREGIDO: No redirigir manualmente - el AuthWrapper se encarga
+    if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(authViewModel.errorMessage))
       );
     }
+    // Si es éxito, el AuthWrapper redirige automáticamente según el rol
   }
 
   @override

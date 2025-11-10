@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/performance_manager.dart';
 
 class AdminViewModel with ChangeNotifier {
   int _selectedIndex = 0;
@@ -9,22 +10,34 @@ class AdminViewModel with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // Methods
-  void changeTab(int index) {
-    _selectedIndex = index;
+  void setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
   }
 
-  void setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+  void changeTab(int index) {
+    // Para operaciones síncronas, usar Future.value
+    PerformanceManager.measure(
+      'Navigation Tab Change',
+          () async {
+        _selectedIndex = index;
+        notifyListeners();
+        return null; // Retornar un valor para Future<void>
+      },
+    );
   }
 
   // Simular carga de datos del dashboard
   Future<void> loadDashboardData() async {
-    setLoading(true);
-    // Simular llamada a API
-    await Future.delayed(const Duration(seconds: 2));
-    setLoading(false);
+    return await PerformanceManager.measure(
+      'Load Dashboard Data',
+          () async {
+        setLoading(true);
+        // Simular llamada a API
+        await Future.delayed(const Duration(milliseconds: 800));
+        setLoading(false);
+      },
+    );
   }
 
   // Datos de ejemplo para el dashboard

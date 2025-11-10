@@ -1,140 +1,209 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/i_auth_repository.dart';
+import '../../core/utils/performance_manager.dart';
+import '../../core/services/role_service.dart';
+import '../screens/auth/login_page.dart';
+import '../screens/admin/admin_panel.dart';
+import '../screens/business/business_panel.dart';
+import '../screens/user/user_dashboard.dart';
 
 class AuthViewModel with ChangeNotifier {
   final IAuthRepository authRepository;
+  final RoleService roleService;
+
+  AuthViewModel({
+    required this.authRepository,
+    required this.roleService,
+  });
 
   UserEntity? _currentUser;
   bool _isLoading = false;
   String _errorMessage = '';
+  bool _authListenerInitialized = false;
 
-  AuthViewModel({required this.authRepository});
-
-  // Getters
   UserEntity? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
 
-  // Setters
-  set isLoading(bool value) {
+  void setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
   }
 
-  set errorMessage(String value) {
+  void setErrorMessage(String value) {
     _errorMessage = value;
     notifyListeners();
   }
 
-  // Methods
-  Future<bool> login(String email, String password) async {
-    try {
-      isLoading = true;
-      errorMessage = '';
-
-      final user = await authRepository.signInWithEmail(email, password);
-
-      if (user != null) {
-        _currentUser = user;
-        isLoading = false;
-        return true;
-      } else {
-        errorMessage = 'Error al iniciar sesión. Verifica tus credenciales.';
-        isLoading = false;
-        return false;
-      }
-    } catch (e) {
-      errorMessage = 'Error al iniciar sesión: $e';
-      isLoading = false;
-      return false;
+  Widget getHomeScreenByRole() {
+    if (_currentUser == null) {
+      return const LoginPage();
     }
+
+    switch (_currentUser!.role) {
+      case 'admin':
+        return const AdminPanel();
+      case 'business':
+        return const BusinessPanel();
+      case 'user':
+        return const UserDashboard();
+      default:
+        return const UserDashboard();
+    }
+  }
+
+  bool canAccess(String feature) {
+    if (_currentUser == null) return false;
+
+    final permissions = {
+      'admin': ['all'],
+      'business': ['manage_products', 'view_orders', 'analytics'],
+      'user': ['place_orders', 'view_history', 'rate_products'],
+    };
+
+    final userPermissions = permissions[_currentUser!.role] ?? [];
+    return userPermissions.contains('all') || userPermissions.contains(feature);
+  }
+
+  Future<bool> login(String email, String password) async {
+    return await PerformanceManager.measure(
+      'Complete Login Process',
+          () async {
+        try {
+          setLoading(true);
+          setErrorMessage('');
+
+          final user = await authRepository.signInWithEmail(email, password);
+
+          if (user != null) {
+            _currentUser = user;
+            setLoading(false);
+            return true;
+          } else {
+            setErrorMessage('Error al iniciar sesión. Verifica tus credenciales.');
+            setLoading(false);
+            return false;
+          }
+        } catch (e) {
+          setErrorMessage('Error al iniciar sesión: $e');
+          setLoading(false);
+          return false;
+        }
+      },
+    );
   }
 
   Future<bool> register(String email, String password, String name) async {
-    try {
-      isLoading = true;
-      errorMessage = '';
+    return await PerformanceManager.measure(
+      'Complete Registration Process',
+          () async {
+        try {
+          setLoading(true);
+          setErrorMessage('');
 
-      final user = await authRepository.signUpWithEmail(email, password, name);
+          final user = await authRepository.signUpWithEmail(email, password, name);
 
-      if (user != null) {
-        _currentUser = user;
-        isLoading = false;
-        return true;
-      } else {
-        errorMessage = 'Error al registrar usuario.';
-        isLoading = false;
-        return false;
-      }
-    } catch (e) {
-      errorMessage = 'Error al registrar: $e';
-      isLoading = false;
-      return false;
-    }
+          if (user != null) {
+            _currentUser = user;
+            setLoading(false);
+            return true;
+          } else {
+            setErrorMessage('Error al registrar usuario.');
+            setLoading(false);
+            return false;
+          }
+        } catch (e) {
+          setErrorMessage('Error al registrar: $e');
+          setLoading(false);
+          return false;
+        }
+      },
+    );
   }
 
   Future<bool> loginWithGoogle() async {
-    try {
-      isLoading = true;
-      errorMessage = '';
+    return await PerformanceManager.measure(
+      'Complete Google Sign-In Process',
+          () async {
+        try {
+          setLoading(true);
+          setErrorMessage('');
 
-      final user = await authRepository.signInWithGoogle();
+          final user = await authRepository.signInWithGoogle();
 
-      if (user != null) {
-        _currentUser = user;
-        isLoading = false;
-        return true;
-      } else {
-        errorMessage = 'Error al iniciar sesión con Google.';
-        isLoading = false;
-        return false;
-      }
-    } catch (e) {
-      errorMessage = 'Error Google Sign-In: $e';
-      isLoading = false;
-      return false;
-    }
+          if (user != null) {
+            _currentUser = user;
+            setLoading(false);
+            return true;
+          } else {
+            setErrorMessage('Error al iniciar sesión con Google.');
+            setLoading(false);
+            return false;
+          }
+        } catch (e) {
+          setErrorMessage('Error Google Sign-In: $e');
+          setLoading(false);
+          return false;
+        }
+      },
+    );
   }
 
   Future<void> logout() async {
-    try {
-      isLoading = true;
-      await authRepository.signOut();
-      _currentUser = null;
-      isLoading = false;
-    } catch (e) {
-      errorMessage = 'Error al cerrar sesión: $e';
-      isLoading = false;
-      rethrow;
-    }
+    return await PerformanceManager.measure(
+      'Complete Logout Process',
+          () async {
+        try {
+          setLoading(true);
+          await authRepository.signOut();
+          _currentUser = null;
+          setLoading(false);
+        } catch (e) {
+          setErrorMessage('Error al cerrar sesión: $e');
+          setLoading(false);
+          rethrow;
+        }
+      },
+    );
   }
 
   Future<bool> resetPassword(String email) async {
-    try {
-      isLoading = true;
-      errorMessage = '';
+    return await PerformanceManager.measure(
+      'Complete Password Reset Process',
+          () async {
+        try {
+          setLoading(true);
+          setErrorMessage('');
 
-      await authRepository.resetPassword(email);
-      isLoading = false;
-      return true;
-    } catch (e) {
-      errorMessage = 'Error al resetear password: $e';
-      isLoading = false;
-      return false;
-    }
+          await authRepository.resetPassword(email);
+          setLoading(false);
+          return true;
+        } catch (e) {
+          setErrorMessage('Error al resetear password: $e');
+          setLoading(false);
+          return false;
+        }
+      },
+    );
   }
 
   void clearError() {
-    errorMessage = '';
+    setErrorMessage('');
   }
 
-  // Listen to auth state changes
   void initializeAuthListener() {
+    if (_authListenerInitialized) return;
+
+    _authListenerInitialized = true;
+
     authRepository.authStateChanges.listen((UserEntity? user) {
       _currentUser = user;
       notifyListeners();
+    }, onError: (error) {
+      print('❌ Error en auth listener: $error');
     });
   }
+
 }

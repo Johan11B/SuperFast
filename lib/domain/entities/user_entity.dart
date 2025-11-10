@@ -3,12 +3,14 @@ class UserEntity {
   final String email;
   final String? name;
   final String? photoUrl;
+  final String role;
 
   UserEntity({
     required this.id,
     required this.email,
     this.name,
     this.photoUrl,
+    required this.role,
   });
 
   @override
@@ -19,7 +21,8 @@ class UserEntity {
         other.id == id &&
         other.email == email &&
         other.name == name &&
-        other.photoUrl == photoUrl;
+        other.photoUrl == photoUrl &&
+        other.role == role;
   }
 
   @override
@@ -27,6 +30,7 @@ class UserEntity {
     return id.hashCode ^
     email.hashCode ^
     name.hashCode ^
-    photoUrl.hashCode;
+    photoUrl.hashCode ^
+    role.hashCode;
   }
 }
