@@ -1,3 +1,4 @@
+// lib/presentation/screens/admin/admin_panel.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
@@ -25,8 +26,9 @@ class _AdminPanelState extends State<AdminPanel> {
   @override
   void initState() {
     super.initState();
-    // Cargar datos del dashboard al iniciar
+    // Cargar datos del dashboard al iniciar - MEJORADO
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('🚀 AdminPanel iniciado - Cargando datos...');
       context.read<AdminViewModel>().loadDashboardData();
     });
   }
@@ -77,11 +79,11 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ),
 
-              // Iconos (Lado Derecho) - CORREGIDO
+              // Iconos (Lado Derecho)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icono de Analytics (Performance) - MÁS PEQUEÑO
+                  // Icono de Analytics (Performance)
                   IconButton(
                     icon: const Icon(Icons.analytics, color: Colors.white, size: 22),
                     onPressed: () {
@@ -90,7 +92,7 @@ class _AdminPanelState extends State<AdminPanel> {
                         MaterialPageRoute(builder: (_) => const PerformanceResultsPage()),
                       );
                     },
-                    tooltip: 'Rendimiento', // Texto al mantener presionado
+                    tooltip: 'Rendimiento',
                   ),
                   // Icono de Ajustes
                   IconButton(
@@ -116,7 +118,16 @@ class _AdminPanelState extends State<AdminPanel> {
 
       // Body con diferentes pantallas según el índice
       body: adminViewModel.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Cargando datos del panel...'),
+          ],
+        ),
+      )
           : _widgetOptions.elementAt(adminViewModel.selectedIndex),
 
       // Bottom Navigation Bar
@@ -126,7 +137,17 @@ class _AdminPanelState extends State<AdminPanel> {
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white.withOpacity(0.7),
         currentIndex: adminViewModel.selectedIndex,
-        onTap: (index) => adminViewModel.changeTab(index),
+        onTap: (index) {
+          adminViewModel.changeTab(index);
+          // Cargar datos específicos cuando se cambia de pestaña
+          if (index == 2) { // Pestaña de negocios
+            print('📊 Cambiando a pestaña de negocios - Recargando datos...');
+            context.read<AdminViewModel>().loadBusinesses();
+          } else if (index == 1) { // Pestaña de usuarios
+            print('👥 Cambiando a pestaña de usuarios - Recargando datos...');
+            context.read<AdminViewModel>().loadUsers();
+          }
+        },
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [
@@ -140,7 +161,7 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
-  // Widgets para las diferentes pantallas - ACTUALIZADO
+  // Widgets para las diferentes pantallas
   final List<Widget> _widgetOptions = <Widget>[
     const _AdminDashboardContent(),
     const AdminUsersScreen(),
@@ -150,7 +171,7 @@ class _AdminPanelState extends State<AdminPanel> {
   ];
 }
 
-// CONTENIDO DEL DASHBOARD - MEJORADO
+// CONTENIDO DEL DASHBOARD
 class _AdminDashboardContent extends StatelessWidget {
   const _AdminDashboardContent();
 
@@ -167,26 +188,37 @@ class _AdminDashboardContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sección de Estadísticas - MEJORADA
+          // Título
+          const Text(
+            'Dashboard Administrativo',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Sección de Estadísticas
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: _StatBox(
-                  title: "Pedidos Activos",
-                  value: stats['activeOrders'].toString(),
-                  icon: Icons.shopping_cart,
-                  color: Colors.blue,
+                  title: "Solicitudes Pendientes",
+                  value: stats['pendingBusinesses'].toString(),
+                  icon: Icons.pending_actions,
+                  color: Colors.orange,
                   primaryColor: primaryColor,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: _StatBox(
-                  title: "Negocios Pendientes",
-                  value: stats['pendingBusinesses'].toString(),
+                  title: "Negocios Aprobados",
+                  value: stats['approvedBusinesses'].toString(),
                   icon: Icons.business,
-                  color: Colors.orange,
+                  color: Colors.green,
                   primaryColor: primaryColor,
                 ),
               ),
@@ -201,16 +233,16 @@ class _AdminDashboardContent extends StatelessWidget {
                   title: "Total Usuarios",
                   value: stats['totalUsers'].toString(),
                   icon: Icons.people,
-                  color: Colors.green,
+                  color: Colors.blue,
                   primaryColor: primaryColor,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: _StatBox(
-                  title: "Ingresos Totales",
-                  value: "\$${stats['totalRevenue'].toStringAsFixed(2)}",
-                  icon: Icons.attach_money,
+                  title: "Empresas Activas",
+                  value: stats['businessUsers'].toString(),
+                  icon: Icons.store,
                   color: Colors.purple,
                   primaryColor: primaryColor,
                 ),
@@ -219,60 +251,53 @@ class _AdminDashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Tarjeta de Actividad Reciente - MEJORADA
+          // Tarjeta de Actividad Reciente
           _buildCard(
             context,
-            title: "Actividad reciente",
-            content: Column(
+            title: "Actividad Reciente",
+            content: activities.isEmpty
+                ? const Center(
+              child: Text(
+                'No hay actividad reciente',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+                : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: activities.map((activity) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.only(bottom: 12.0),
                   child: Row(
                     children: [
                       Icon(
                         _getActivityIcon(activity['type']),
                         color: _getActivityColor(activity['type']),
-                        size: 16,
+                        size: 20,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          activity['message'],
-                          style: const TextStyle(fontSize: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activity['message'],
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Hace unos momentos',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 );
               }).toList(),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Tarjeta de Alertas - MEJORADA
-          _buildCard(
-            context,
-            title: "Alertas del Sistema",
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildAlertItem(
-                  Icons.warning,
-                  Colors.orange,
-                  "${stats['pendingBusinesses']} negocios pendientes de aprobación",
-                ),
-                _buildAlertItem(
-                  Icons.assignment,
-                  Colors.blue,
-                  "${stats['pendingReports']} reportes pendientes de revisión",
-                ),
-                _buildAlertItem(
-                  Icons.trending_up,
-                  Colors.green,
-                  "Crecimiento del 15% en pedidos este mes",
-                ),
-              ],
             ),
           ),
         ],
@@ -282,7 +307,7 @@ class _AdminDashboardContent extends StatelessWidget {
 
   IconData _getActivityIcon(String type) {
     switch (type) {
-      case 'user': return Icons.person;
+      case 'user': return Icons.person_add;
       case 'business': return Icons.business;
       case 'order': return Icons.shopping_cart;
       default: return Icons.notifications;
@@ -296,24 +321,6 @@ class _AdminDashboardContent extends StatelessWidget {
       case 'order': return Colors.green;
       default: return Colors.grey;
     }
-  }
-
-  Widget _buildAlertItem(IconData icon, Color color, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCard(BuildContext context, {required String title, required Widget content}) {
@@ -342,7 +349,7 @@ class _AdminDashboardContent extends StatelessWidget {
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           content,
         ],
       ),
@@ -350,7 +357,7 @@ class _AdminDashboardContent extends StatelessWidget {
   }
 }
 
-// CAJA DE ESTADÍSTICAS - MANTENIDO
+// CAJA DE ESTADÍSTICAS
 class _StatBox extends StatelessWidget {
   final String title;
   final String value;
@@ -388,7 +395,7 @@ class _StatBox extends StatelessWidget {
             title,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: 14,
               color: Colors.black87,
             ),
           ),
@@ -397,22 +404,21 @@ class _StatBox extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black87,
-                  )
+                value,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black87,
+                ),
               ),
               Container(
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(50),
                 ),
-                padding: const EdgeInsets.all(4),
-                child: Icon(icon, color: Colors.white, size: 20),
+                padding: const EdgeInsets.all(8),
+                child: Icon(icon, color: Colors.white, size: 24),
               ),
-
             ],
           ),
         ],

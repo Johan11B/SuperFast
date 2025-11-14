@@ -1,9 +1,8 @@
-// lib/presentation/viewmodels/admin_viewmodel.dart - VERSIÓN CORREGIDA
+// lib/presentation/viewmodels/admin_viewmodel.dart
 import 'package:flutter/foundation.dart';
 import '../../core/services/business_registration_service.dart';
 import '../../core/services/user_service.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../domain/entities/business_entity.dart'; // AÑADIR ESTO
 
 class AdminViewModel extends ChangeNotifier {
   final BusinessRegistrationService _businessService = BusinessRegistrationService();
@@ -12,28 +11,28 @@ class AdminViewModel extends ChangeNotifier {
   // Estados
   int _selectedIndex = 0;
   bool _isLoading = false;
+  bool _isLoadingBusinesses = false;
   String _errorMessage = '';
-  List<BusinessEntity> _pendingBusinesses = []; // CAMBIADO A BusinessEntity
-  List<BusinessEntity> _approvedBusinesses = []; // CAMBIADO A BusinessEntity
-  List<UserEntity> _users = []; // CAMBIADO A UserEntity
+  List<Map<String, dynamic>> _pendingBusinesses = [];
+  List<Map<String, dynamic>> _approvedBusinesses = [];
+  List<UserEntity> _users = [];
   String _businessSearch = '';
   String _userSearch = '';
 
-  // Getters CORREGIDOS
+  // Getters
   int get selectedIndex => _selectedIndex;
   bool get isLoading => _isLoading;
+  bool get isLoadingBusinesses => _isLoadingBusinesses;
   String get errorMessage => _errorMessage;
-  List<BusinessEntity> get pendingBusinesses => _filterBusinesses(_pendingBusinesses); // CAMBIADO
-  List<BusinessEntity> get businesses => _filterBusinesses(_approvedBusinesses); // CAMBIADO
-  List<UserEntity> get users => _filterUsers(_users); // CAMBIADO
+  List<Map<String, dynamic>> get pendingBusinesses => _filterBusinesses(_pendingBusinesses);
+  List<Map<String, dynamic>> get businesses => _filterBusinesses(_approvedBusinesses);
+  List<UserEntity> get users => _filterUsers(_users);
 
-  // Métodos para cambiar pestaña
   void changeTab(int index) {
     _selectedIndex = index;
     notifyListeners();
   }
 
-  // Métodos de búsqueda
   void updateBusinessSearch(String query) {
     _businessSearch = query.toLowerCase();
     notifyListeners();
@@ -44,13 +43,12 @@ class AdminViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Filtros CORREGIDOS
-  List<BusinessEntity> _filterBusinesses(List<BusinessEntity> list) {
+  List<Map<String, dynamic>> _filterBusinesses(List<Map<String, dynamic>> list) {
     if (_businessSearch.isEmpty) return list;
     return list.where((business) =>
-    business.name.toLowerCase().contains(_businessSearch) ||
-        business.email.toLowerCase().contains(_businessSearch) ||
-        business.category.toLowerCase().contains(_businessSearch)
+    business['businessName']?.toString().toLowerCase().contains(_businessSearch) == true ||
+        business['userEmail']?.toString().toLowerCase().contains(_businessSearch) == true ||
+        business['category']?.toString().toLowerCase().contains(_businessSearch) == true
     ).toList();
   }
 
@@ -64,75 +62,95 @@ class AdminViewModel extends ChangeNotifier {
 
   // Cargar datos del dashboard
   Future<void> loadDashboardData() async {
+    if (_isLoading) return;
+
     _isLoading = true;
+    _errorMessage = '';
     notifyListeners();
 
     try {
       await Future.wait([
-        loadPendingBusinesses(), // CAMBIADO
+        loadPendingBusinesses(),
         loadApprovedBusinesses(),
         loadUsers(),
       ]);
+      print('✅ Dashboard data cargado exitosamente');
     } catch (e) {
       _errorMessage = 'Error cargando datos: $e';
+      print('❌ Error cargando dashboard data: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Cargar negocios pendientes - NUEVO MÉTODO
+  // Cargar negocios pendientes
   Future<void> loadPendingBusinesses() async {
     try {
-      final registrations = await _businessService.getPendingRegistrations();
-      _pendingBusinesses = registrations.map((map) => BusinessEntity.fromMap(map)).toList();
+      _pendingBusinesses = await _businessService.getPendingRegistrations();
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error cargando negocios pendientes: $e';
+      _pendingBusinesses = [];
     }
     notifyListeners();
   }
 
-  // Cargar negocios aprobados - CORREGIDO
+  // Cargar negocios aprobados
   Future<void> loadApprovedBusinesses() async {
     try {
-      final businesses = await _businessService.getApprovedBusinesses();
-      _approvedBusinesses = businesses.map((map) => BusinessEntity.fromMap(map)).toList();
+      _approvedBusinesses = await _businessService.getApprovedBusinesses();
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error cargando negocios aprobados: $e';
+      _approvedBusinesses = [];
     }
     notifyListeners();
   }
 
-  // Cargar usuarios - CORREGIDO
+  // Cargar usuarios
   Future<void> loadUsers() async {
     try {
       _users = await _userService.getAllUsers();
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error cargando usuarios: $e';
+      _users = [];
     }
     notifyListeners();
   }
 
-  // Método para cargar todos los negocios (usado en businesses screen)
+  // Método para cargar todos los negocios
   Future<void> loadBusinesses() async {
-    await Future.wait([
-      loadPendingBusinesses(),
-      loadApprovedBusinesses(),
-    ]);
+    if (_isLoadingBusinesses) return;
+
+    _isLoadingBusinesses = true;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      await Future.wait([
+        loadPendingBusinesses(),
+        loadApprovedBusinesses(),
+      ]);
+      print('✅ Todos los negocios cargados exitosamente');
+    } catch (e) {
+      _errorMessage = 'Error cargando negocios: $e';
+      print('❌ Error cargando negocios: $e');
+    } finally {
+      _isLoadingBusinesses = false;
+      notifyListeners();
+    }
   }
 
-  // Aprobar negocio - CORREGIDO
+  // Aprobar negocio
   Future<void> approveBusiness(String businessId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _businessService.approveBusinessRegistration(businessId);
-      await loadPendingBusinesses();
-      await loadApprovedBusinesses();
+      await loadBusinesses(); // Recargar ambos tipos de negocios
       await loadUsers(); // Para actualizar roles si es necesario
       _errorMessage = '';
     } catch (e) {
@@ -143,14 +161,14 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Rechazar negocio - CORREGIDO
+  // Rechazar negocio
   Future<void> rejectBusiness(String businessId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _businessService.rejectBusinessRegistration(businessId);
-      await loadPendingBusinesses();
+      await loadPendingBusinesses(); // Solo recargar pendientes
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error rechazando negocio: $e';
@@ -160,14 +178,14 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Suspender negocio - CORREGIDO
+  // Suspender negocio
   Future<void> suspendBusiness(String businessId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _businessService.suspendBusiness(businessId);
-      await loadApprovedBusinesses();
+      await loadApprovedBusinesses(); // Solo recargar aprobados
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error suspendiendo negocio: $e';
@@ -177,14 +195,14 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Activar negocio - CORREGIDO
+  // Activar negocio
   Future<void> activateBusiness(String businessId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _businessService.activateBusiness(businessId);
-      await loadApprovedBusinesses();
+      await loadApprovedBusinesses(); // Solo recargar aprobados
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error activando negocio: $e';
@@ -194,14 +212,14 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Eliminar negocio - CORREGIDO
+  // Eliminar negocio
   Future<void> deleteBusiness(String businessId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _businessService.deleteBusiness(businessId);
-      await loadApprovedBusinesses();
+      await loadApprovedBusinesses(); // Solo recargar aprobados
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error eliminando negocio: $e';
@@ -211,7 +229,7 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Cambiar rol de usuario - CORREGIDO
+  // Cambiar rol de usuario
   Future<void> changeUserRole(String userId, String newRole) async {
     _isLoading = true;
     notifyListeners();
@@ -228,7 +246,7 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Eliminar usuario - CORREGIDO
+  // Eliminar usuario
   Future<void> deleteUser(String userId) async {
     _isLoading = true;
     notifyListeners();
@@ -245,7 +263,7 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Métodos para el dashboard - CORREGIDOS
+  // Métodos para el dashboard
   Map<String, dynamic> getDashboardStats() {
     return {
       'pendingBusinesses': _pendingBusinesses.length,
@@ -254,9 +272,9 @@ class AdminViewModel extends ChangeNotifier {
       'activeUsers': _users.where((user) => user.role == 'user').length,
       'businessUsers': _users.where((user) => user.role == 'business').length,
       'adminUsers': _users.where((user) => user.role == 'admin').length,
-      'activeOrders': 0, // Placeholder
-      'totalRevenue': 0.0, // Placeholder
-      'pendingReports': 0, // Placeholder
+      'activeOrders': 0,
+      'totalRevenue': 0.0,
+      'pendingReports': 0,
     };
   }
 
@@ -267,7 +285,7 @@ class AdminViewModel extends ChangeNotifier {
     for (final business in _pendingBusinesses.take(3)) {
       activities.add({
         'type': 'business',
-        'message': 'Nueva solicitud: ${business.name}',
+        'message': 'Nueva solicitud: ${business['businessName']}',
         'time': DateTime.now(),
       });
     }
@@ -282,5 +300,11 @@ class AdminViewModel extends ChangeNotifier {
     }
 
     return activities;
+  }
+
+  // Limpiar errores
+  void clearError() {
+    _errorMessage = '';
+    notifyListeners();
   }
 }

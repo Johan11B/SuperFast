@@ -1,4 +1,4 @@
-// lib/core/services/business_registration_service.dart - VERSIÓN COMPLETA
+// lib/core/services/business_registration_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -17,6 +17,7 @@ class BusinessRegistrationService {
 
       return query.docs.isNotEmpty;
     } catch (e) {
+      print('❌ Error verificando negocio del usuario: $e');
       throw Exception('Error verificando negocio del usuario: $e');
     }
   }
@@ -35,6 +36,7 @@ class BusinessRegistrationService {
       }
       return null;
     } catch (e) {
+      print('❌ Error obteniendo estado del negocio: $e');
       throw Exception('Error obteniendo estado del negocio: $e');
     }
   }
@@ -70,12 +72,15 @@ class BusinessRegistrationService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      print('✅ Negocio registrado exitosamente: $businessName');
+
     } catch (e) {
+      print('❌ Error registrando negocio: $e');
       throw Exception('Error registrando negocio: $e');
     }
   }
 
-  // Método para obtener registros pendientes (para admin)
+  // Método para obtener registros pendientes (CON ÍNDICE)
   Future<List<Map<String, dynamic>>> getPendingRegistrations() async {
     try {
       final query = await _firestore
@@ -84,7 +89,7 @@ class BusinessRegistrationService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return query.docs.map((doc) {
+      final results = query.docs.map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -92,12 +97,16 @@ class BusinessRegistrationService {
           'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         };
       }).toList();
+
+      print('✅ ${results.length} negocios pendientes cargados');
+      return results;
     } catch (e) {
+      print('❌ Error obteniendo registros pendientes: $e');
       throw Exception('Error obteniendo registros pendientes: $e');
     }
   }
 
-  // MÉTODO NUEVO: Obtener negocios aprobados
+  // Método para obtener negocios aprobados (CON ÍNDICE)
   Future<List<Map<String, dynamic>>> getApprovedBusinesses() async {
     try {
       final query = await _firestore
@@ -106,7 +115,7 @@ class BusinessRegistrationService {
           .orderBy('approvedAt', descending: true)
           .get();
 
-      return query.docs.map((doc) {
+      final results = query.docs.map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -115,7 +124,11 @@ class BusinessRegistrationService {
           'approvedAt': (data['approvedAt'] as Timestamp?)?.toDate(),
         };
       }).toList();
+
+      print('✅ ${results.length} negocios aprobados cargados');
+      return results;
     } catch (e) {
+      print('❌ Error obteniendo negocios aprobados: $e');
       throw Exception('Error obteniendo negocios aprobados: $e');
     }
   }
@@ -132,6 +145,7 @@ class BusinessRegistrationService {
 
       final data = doc.data()!;
       final userId = data['userId'] as String;
+      final businessName = data['businessName'] as String;
 
       // Actualizar el estado a aprobado
       await docRef.update({
@@ -143,7 +157,10 @@ class BusinessRegistrationService {
       // Actualizar el rol del usuario a 'business'
       await _updateUserRole(userId, 'business');
 
+      print('✅ Negocio aprobado: $businessName (ID: $registrationId)');
+
     } catch (e) {
+      print('❌ Error aprobando negocio: $e');
       throw Exception('Error aprobando negocio: $e');
     }
   }
@@ -151,60 +168,94 @@ class BusinessRegistrationService {
   // Método para rechazar un negocio
   Future<void> rejectBusinessRegistration(String registrationId) async {
     try {
-      await _firestore.collection('business_registrations').doc(registrationId).update({
-        'status': 'rejected',
-        'updatedAt': FieldValue.serverTimestamp(),
-        'rejectedAt': FieldValue.serverTimestamp(),
-      });
+      final docRef = _firestore.collection('business_registrations').doc(registrationId);
+      final doc = await docRef.get();
+
+      if (doc.exists) {
+        final businessName = doc.data()!['businessName'] as String;
+
+        await docRef.update({
+          'status': 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'rejectedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ Negocio rechazado: $businessName (ID: $registrationId)');
+      } else {
+        throw Exception('Registro no encontrado');
+      }
     } catch (e) {
+      print('❌ Error rechazando negocio: $e');
       throw Exception('Error rechazando negocio: $e');
     }
   }
 
-  // MÉTODO NUEVO: Suspender negocio
+  // Método para suspender negocio
   Future<void> suspendBusiness(String businessId) async {
     try {
-      await _firestore.collection('business_registrations').doc(businessId).update({
-        'status': 'suspended',
-        'updatedAt': FieldValue.serverTimestamp(),
-        'suspendedAt': FieldValue.serverTimestamp(),
-      });
+      final docRef = _firestore.collection('business_registrations').doc(businessId);
+      final doc = await docRef.get();
+
+      if (doc.exists) {
+        final businessName = doc.data()!['businessName'] as String;
+
+        await docRef.update({
+          'status': 'suspended',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'suspendedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ Negocio suspendido: $businessName (ID: $businessId)');
+      } else {
+        throw Exception('Negocio no encontrado');
+      }
     } catch (e) {
+      print('❌ Error suspendiendo negocio: $e');
       throw Exception('Error suspendiendo negocio: $e');
     }
   }
 
-  // MÉTODO NUEVO: Activar negocio
+  // Método para activar negocio
   Future<void> activateBusiness(String businessId) async {
     try {
-      await _firestore.collection('business_registrations').doc(businessId).update({
-        'status': 'approved',
-        'updatedAt': FieldValue.serverTimestamp(),
-        'activatedAt': FieldValue.serverTimestamp(),
-      });
+      final docRef = _firestore.collection('business_registrations').doc(businessId);
+      final doc = await docRef.get();
+
+      if (doc.exists) {
+        final businessName = doc.data()!['businessName'] as String;
+
+        await docRef.update({
+          'status': 'approved',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'activatedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ Negocio activado: $businessName (ID: $businessId)');
+      } else {
+        throw Exception('Negocio no encontrado');
+      }
     } catch (e) {
+      print('❌ Error activando negocio: $e');
       throw Exception('Error activando negocio: $e');
     }
   }
 
-  // MÉTODO NUEVO: Eliminar negocio
+  // Método para eliminar negocio
   Future<void> deleteBusiness(String businessId) async {
     try {
-      await _firestore.collection('business_registrations').doc(businessId).delete();
-    } catch (e) {
-      throw Exception('Error eliminando negocio: $e');
-    }
-  }
+      final docRef = _firestore.collection('business_registrations').doc(businessId);
+      final doc = await docRef.get();
 
-  // Método para actualizar el rol del usuario
-  Future<void> _updateUserRole(String userId, String newRole) async {
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'role': newRole,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (doc.exists) {
+        final businessName = doc.data()!['businessName'] as String;
+        await docRef.delete();
+        print('✅ Negocio eliminado: $businessName (ID: $businessId)');
+      } else {
+        throw Exception('Negocio no encontrado');
+      }
     } catch (e) {
-      throw Exception('Error actualizando rol del usuario: $e');
+      print('❌ Error eliminando negocio: $e');
+      throw Exception('Error eliminando negocio: $e');
     }
   }
 
@@ -228,11 +279,12 @@ class BusinessRegistrationService {
       }
       return null;
     } catch (e) {
+      print('❌ Error obteniendo estado de registro: $e');
       throw Exception('Error obteniendo estado de registro: $e');
     }
   }
 
-  // MÉTODO NUEVO: Obtener todos los negocios (para admin)
+  // Método para obtener todos los negocios
   Future<List<Map<String, dynamic>>> getAllBusinesses() async {
     try {
       final query = await _firestore
@@ -240,7 +292,7 @@ class BusinessRegistrationService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return query.docs.map((doc) {
+      final results = query.docs.map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -248,8 +300,26 @@ class BusinessRegistrationService {
           'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         };
       }).toList();
+
+      print('✅ ${results.length} negocios totales cargados');
+      return results;
     } catch (e) {
+      print('❌ Error obteniendo todos los negocios: $e');
       throw Exception('Error obteniendo todos los negocios: $e');
+    }
+  }
+
+  // Método privado para actualizar el rol del usuario
+  Future<void> _updateUserRole(String userId, String newRole) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'role': newRole,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ Rol de usuario actualizado: $userId -> $newRole');
+    } catch (e) {
+      print('❌ Error actualizando rol del usuario: $e');
+      throw Exception('Error actualizando rol del usuario: $e');
     }
   }
 }
