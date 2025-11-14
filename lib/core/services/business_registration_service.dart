@@ -12,6 +12,7 @@ class BusinessRegistrationService {
       final query = await _firestore
           .collection('business_registrations')
           .where('userId', isEqualTo: userId)
+          .where('status', whereIn: ['pending', 'approved', 'suspended'])
           .limit(1)
           .get();
 
@@ -67,7 +68,7 @@ class BusinessRegistrationService {
         'address': address,
         'phone': phone,
         'description': description,
-        'status': 'pending', // pending, approved, rejected
+        'status': 'pending', // pending, approved, rejected, suspended
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -80,7 +81,7 @@ class BusinessRegistrationService {
     }
   }
 
-  // Método para obtener registros pendientes (CON ÍNDICE)
+  // Método para obtener registros pendientes
   Future<List<Map<String, dynamic>>> getPendingRegistrations() async {
     try {
       final query = await _firestore
@@ -106,7 +107,36 @@ class BusinessRegistrationService {
     }
   }
 
-  // Método para obtener negocios aprobados (CON ÍNDICE)
+  // Método para obtener negocios activos (aprobados + suspendidos)
+  Future<List<Map<String, dynamic>>> getActiveBusinesses() async {
+    try {
+      final query = await _firestore
+          .collection('business_registrations')
+          .where('status', whereIn: ['approved', 'suspended'])
+          .orderBy('status')
+          .orderBy('approvedAt', descending: true)
+          .get();
+
+      final results = query.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          ...data,
+          'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          'approvedAt': (data['approvedAt'] as Timestamp?)?.toDate(),
+          'suspendedAt': (data['suspendedAt'] as Timestamp?)?.toDate(),
+        };
+      }).toList();
+
+      print('✅ ${results.length} negocios activos cargados');
+      return results;
+    } catch (e) {
+      print('❌ Error obteniendo negocios activos: $e');
+      throw Exception('Error obteniendo negocios activos: $e');
+    }
+  }
+
+  // Método para obtener solo negocios aprobados
   Future<List<Map<String, dynamic>>> getApprovedBusinesses() async {
     try {
       final query = await _firestore
@@ -133,6 +163,33 @@ class BusinessRegistrationService {
     }
   }
 
+  // Método para obtener negocios suspendidos
+  Future<List<Map<String, dynamic>>> getSuspendedBusinesses() async {
+    try {
+      final query = await _firestore
+          .collection('business_registrations')
+          .where('status', isEqualTo: 'suspended')
+          .orderBy('suspendedAt', descending: true)
+          .get();
+
+      final results = query.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          ...data,
+          'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          'suspendedAt': (data['suspendedAt'] as Timestamp?)?.toDate(),
+        };
+      }).toList();
+
+      print('✅ ${results.length} negocios suspendidos cargados');
+      return results;
+    } catch (e) {
+      print('❌ Error obteniendo negocios suspendidos: $e');
+      throw Exception('Error obteniendo negocios suspendidos: $e');
+    }
+  }
+
   // Método para aprobar un negocio
   Future<void> approveBusinessRegistration(String registrationId) async {
     try {
@@ -152,6 +209,7 @@ class BusinessRegistrationService {
         'status': 'approved',
         'updatedAt': FieldValue.serverTimestamp(),
         'approvedAt': FieldValue.serverTimestamp(),
+        'suspendedAt': FieldValue.delete(), // Limpiar suspendedAt si existe
       });
 
       // Actualizar el rol del usuario a 'business'
@@ -228,6 +286,7 @@ class BusinessRegistrationService {
           'status': 'approved',
           'updatedAt': FieldValue.serverTimestamp(),
           'activatedAt': FieldValue.serverTimestamp(),
+          'suspendedAt': FieldValue.delete(), // Limpiar suspendedAt
         });
 
         print('✅ Negocio activado: $businessName (ID: $businessId)');
@@ -240,16 +299,25 @@ class BusinessRegistrationService {
     }
   }
 
-  // Método para eliminar negocio
+  // Método para eliminar negocio permanentemente
   Future<void> deleteBusiness(String businessId) async {
     try {
       final docRef = _firestore.collection('business_registrations').doc(businessId);
       final doc = await docRef.get();
 
       if (doc.exists) {
-        final businessName = doc.data()!['businessName'] as String;
+        final data = doc.data()!;
+        final businessName = data['businessName'] as String;
+        final userId = data['userId'] as String;
+        final status = data['status'] as String;
+
+        // Si el negocio estaba aprobado, revertir el rol del usuario a 'user'
+        if (status == 'approved' || status == 'suspended') {
+          await _updateUserRole(userId, 'user');
+        }
+
         await docRef.delete();
-        print('✅ Negocio eliminado: $businessName (ID: $businessId)');
+        print('✅ Negocio eliminado permanentemente: $businessName (ID: $businessId)');
       } else {
         throw Exception('Negocio no encontrado');
       }
@@ -306,6 +374,43 @@ class BusinessRegistrationService {
     } catch (e) {
       print('❌ Error obteniendo todos los negocios: $e');
       throw Exception('Error obteniendo todos los negocios: $e');
+    }
+  }
+
+  // Método para contar negocios por estado
+  Future<Map<String, int>> getBusinessCounts() async {
+    try {
+      final pendingQuery = await _firestore
+          .collection('business_registrations')
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final approvedQuery = await _firestore
+          .collection('business_registrations')
+          .where('status', isEqualTo: 'approved')
+          .get();
+
+      final suspendedQuery = await _firestore
+          .collection('business_registrations')
+          .where('status', isEqualTo: 'suspended')
+          .get();
+
+      return {
+        'pending': pendingQuery.docs.length,
+        'approved': approvedQuery.docs.length,
+        'suspended': suspendedQuery.docs.length,
+        'active': approvedQuery.docs.length + suspendedQuery.docs.length,
+        'total': pendingQuery.docs.length + approvedQuery.docs.length + suspendedQuery.docs.length,
+      };
+    } catch (e) {
+      print('❌ Error obteniendo conteos de negocios: $e');
+      return {
+        'pending': 0,
+        'approved': 0,
+        'suspended': 0,
+        'active': 0,
+        'total': 0,
+      };
     }
   }
 

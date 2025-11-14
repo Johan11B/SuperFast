@@ -14,10 +14,21 @@ class AdminViewModel extends ChangeNotifier {
   bool _isLoadingBusinesses = false;
   String _errorMessage = '';
   List<Map<String, dynamic>> _pendingBusinesses = [];
+  List<Map<String, dynamic>> _activeBusinesses = [];
   List<Map<String, dynamic>> _approvedBusinesses = [];
+  List<Map<String, dynamic>> _suspendedBusinesses = [];
   List<UserEntity> _users = [];
   String _businessSearch = '';
   String _userSearch = '';
+
+  // Estadísticas
+  Map<String, int> _businessCounts = {
+    'pending': 0,
+    'approved': 0,
+    'suspended': 0,
+    'active': 0,
+    'total': 0,
+  };
 
   // Getters
   int get selectedIndex => _selectedIndex;
@@ -25,8 +36,11 @@ class AdminViewModel extends ChangeNotifier {
   bool get isLoadingBusinesses => _isLoadingBusinesses;
   String get errorMessage => _errorMessage;
   List<Map<String, dynamic>> get pendingBusinesses => _filterBusinesses(_pendingBusinesses);
-  List<Map<String, dynamic>> get businesses => _filterBusinesses(_approvedBusinesses);
+  List<Map<String, dynamic>> get activeBusinesses => _filterBusinesses(_activeBusinesses);
+  List<Map<String, dynamic>> get approvedBusinesses => _filterBusinesses(_approvedBusinesses);
+  List<Map<String, dynamic>> get suspendedBusinesses => _filterBusinesses(_suspendedBusinesses);
   List<UserEntity> get users => _filterUsers(_users);
+  Map<String, int> get businessCounts => _businessCounts;
 
   void changeTab(int index) {
     _selectedIndex = index;
@@ -70,8 +84,9 @@ class AdminViewModel extends ChangeNotifier {
 
     try {
       await Future.wait([
+        loadBusinessCounts(),
         loadPendingBusinesses(),
-        loadApprovedBusinesses(),
+        loadActiveBusinesses(),
         loadUsers(),
       ]);
       print('✅ Dashboard data cargado exitosamente');
@@ -81,6 +96,16 @@ class AdminViewModel extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // Cargar conteos de negocios
+  Future<void> loadBusinessCounts() async {
+    try {
+      _businessCounts = await _businessService.getBusinessCounts();
+      print('✅ Conteos de negocios cargados: $_businessCounts');
+    } catch (e) {
+      print('❌ Error cargando conteos de negocios: $e');
     }
   }
 
@@ -96,14 +121,19 @@ class AdminViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Cargar negocios aprobados
-  Future<void> loadApprovedBusinesses() async {
+  // Cargar negocios activos (aprobados + suspendidos)
+  Future<void> loadActiveBusinesses() async {
     try {
-      _approvedBusinesses = await _businessService.getApprovedBusinesses();
+      _activeBusinesses = await _businessService.getActiveBusinesses();
+      // Separar en listas individuales
+      _approvedBusinesses = _activeBusinesses.where((b) => b['status'] == 'approved').toList();
+      _suspendedBusinesses = _activeBusinesses.where((b) => b['status'] == 'suspended').toList();
       _errorMessage = '';
     } catch (e) {
-      _errorMessage = 'Error cargando negocios aprobados: $e';
+      _errorMessage = 'Error cargando negocios activos: $e';
+      _activeBusinesses = [];
       _approvedBusinesses = [];
+      _suspendedBusinesses = [];
     }
     notifyListeners();
   }
@@ -130,8 +160,9 @@ class AdminViewModel extends ChangeNotifier {
 
     try {
       await Future.wait([
+        loadBusinessCounts(),
         loadPendingBusinesses(),
-        loadApprovedBusinesses(),
+        loadActiveBusinesses(),
       ]);
       print('✅ Todos los negocios cargados exitosamente');
     } catch (e) {
@@ -150,7 +181,7 @@ class AdminViewModel extends ChangeNotifier {
 
     try {
       await _businessService.approveBusinessRegistration(businessId);
-      await loadBusinesses(); // Recargar ambos tipos de negocios
+      await loadBusinesses(); // Recargar todos los datos
       await loadUsers(); // Para actualizar roles si es necesario
       _errorMessage = '';
     } catch (e) {
@@ -168,7 +199,7 @@ class AdminViewModel extends ChangeNotifier {
 
     try {
       await _businessService.rejectBusinessRegistration(businessId);
-      await loadPendingBusinesses(); // Solo recargar pendientes
+      await loadBusinesses(); // Recargar todos los datos
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error rechazando negocio: $e';
@@ -185,7 +216,7 @@ class AdminViewModel extends ChangeNotifier {
 
     try {
       await _businessService.suspendBusiness(businessId);
-      await loadApprovedBusinesses(); // Solo recargar aprobados
+      await loadBusinesses(); // Recargar todos los datos
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error suspendiendo negocio: $e';
@@ -202,7 +233,7 @@ class AdminViewModel extends ChangeNotifier {
 
     try {
       await _businessService.activateBusiness(businessId);
-      await loadApprovedBusinesses(); // Solo recargar aprobados
+      await loadBusinesses(); // Recargar todos los datos
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error activando negocio: $e';
@@ -212,14 +243,15 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // Eliminar negocio
+  // Eliminar negocio permanentemente
   Future<void> deleteBusiness(String businessId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _businessService.deleteBusiness(businessId);
-      await loadApprovedBusinesses(); // Solo recargar aprobados
+      await loadBusinesses(); // Recargar todos los datos
+      await loadUsers(); // Para actualizar roles si es necesario
       _errorMessage = '';
     } catch (e) {
       _errorMessage = 'Error eliminando negocio: $e';
@@ -266,8 +298,11 @@ class AdminViewModel extends ChangeNotifier {
   // Métodos para el dashboard
   Map<String, dynamic> getDashboardStats() {
     return {
-      'pendingBusinesses': _pendingBusinesses.length,
-      'approvedBusinesses': _approvedBusinesses.length,
+      'pendingBusinesses': _businessCounts['pending'] ?? 0,
+      'approvedBusinesses': _businessCounts['approved'] ?? 0,
+      'suspendedBusinesses': _businessCounts['suspended'] ?? 0,
+      'activeBusinesses': _businessCounts['active'] ?? 0,
+      'totalBusinesses': _businessCounts['total'] ?? 0,
       'totalUsers': _users.length,
       'activeUsers': _users.where((user) => user.role == 'user').length,
       'businessUsers': _users.where((user) => user.role == 'business').length,

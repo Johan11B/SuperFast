@@ -199,7 +199,7 @@ class _AdminDashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Sección de Estadísticas
+          // NUEVA SECCIÓN DE ESTADÍSTICAS - EMPRESAS
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -215,8 +215,8 @@ class _AdminDashboardContent extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: _StatBox(
-                  title: "Negocios Aprobados",
-                  value: stats['approvedBusinesses'].toString(),
+                  title: "Empresas Activas",
+                  value: stats['activeBusinesses'].toString(),
                   icon: Icons.business,
                   color: Colors.green,
                   primaryColor: primaryColor,
@@ -230,9 +230,9 @@ class _AdminDashboardContent extends StatelessWidget {
             children: [
               Expanded(
                 child: _StatBox(
-                  title: "Total Usuarios",
-                  value: stats['totalUsers'].toString(),
-                  icon: Icons.people,
+                  title: "Empresas Aprobadas",
+                  value: stats['approvedBusinesses'].toString(),
+                  icon: Icons.check_circle,
                   color: Colors.blue,
                   primaryColor: primaryColor,
                 ),
@@ -240,10 +240,37 @@ class _AdminDashboardContent extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: _StatBox(
-                  title: "Empresas Activas",
+                  title: "Empresas Suspendidas",
+                  value: stats['suspendedBusinesses'].toString(),
+                  icon: Icons.pause_circle,
+                  color: Colors.grey,
+                  primaryColor: primaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Sección de Estadísticas Adicionales (Usuarios y Empresas)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: _StatBox(
+                  title: "Total Usuarios",
+                  value: stats['totalUsers'].toString(),
+                  icon: Icons.people,
+                  color: Colors.purple,
+                  primaryColor: primaryColor,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _StatBox(
+                  title: "Empresas Registradas",
                   value: stats['businessUsers'].toString(),
                   icon: Icons.store,
-                  color: Colors.purple,
+                  color: Colors.teal,
                   primaryColor: primaryColor,
                 ),
               ),

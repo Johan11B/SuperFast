@@ -36,7 +36,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     final adminViewModel = context.watch<AdminViewModel>();
 
     return DefaultTabController(
-      length: 2,
+      length: 3, // Ahora son 3 pestañas
       child: Scaffold(
         backgroundColor: const Color(0xFFEFEFEF),
         appBar: AppBar(
@@ -80,20 +80,24 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
               adminViewModel.updateBusinessSearch(value);
             },
           ),
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.check_circle), text: 'Aprobados'),
-              Tab(icon: Icon(Icons.pending), text: 'Pendientes'),
+              const Tab(icon: Icon(Icons.pending), text: 'Pendientes'),
+              const Tab(icon: Icon(Icons.check_circle), text: 'Aprobados'),
+              const Tab(icon: Icon(Icons.pause_circle), text: 'Suspendidos'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            // Pestaña de Negocios Aprobados
-            _buildBusinessesList(adminViewModel.businesses, adminViewModel, false),
-
             // Pestaña de Negocios Pendientes
-            _buildBusinessesList(adminViewModel.pendingBusinesses, adminViewModel, true),
+            _buildBusinessesList(adminViewModel.pendingBusinesses, adminViewModel, 'pending'),
+
+            // Pestaña de Negocios Aprobados
+            _buildBusinessesList(adminViewModel.approvedBusinesses, adminViewModel, 'approved'),
+
+            // Pestaña de Negocios Suspendidos
+            _buildBusinessesList(adminViewModel.suspendedBusinesses, adminViewModel, 'suspended'),
           ],
         ),
         floatingActionButton: adminViewModel.isLoadingBusinesses
@@ -118,7 +122,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  Widget _buildBusinessesList(List<Map<String, dynamic>> businesses, AdminViewModel adminViewModel, bool isPending) {
+  Widget _buildBusinessesList(List<Map<String, dynamic>> businesses, AdminViewModel adminViewModel, String tabType) {
     if (adminViewModel.isLoadingBusinesses && businesses.isEmpty) {
       return const Center(
         child: Column(
@@ -133,25 +137,41 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
 
     if (businesses.isEmpty) {
+      String emptyMessage = '';
+      String emptySubtitle = '';
+
+      switch (tabType) {
+        case 'pending':
+          emptyMessage = 'No hay negocios pendientes';
+          emptySubtitle = 'Las solicitudes de empresas aparecerán aquí';
+          break;
+        case 'approved':
+          emptyMessage = 'No hay negocios aprobados';
+          emptySubtitle = 'Las empresas aprobadas aparecerán aquí';
+          break;
+        case 'suspended':
+          emptyMessage = 'No hay negocios suspendidos';
+          emptySubtitle = 'Las empresas suspendidas aparecerán aquí';
+          break;
+      }
+
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isPending ? Icons.pending_actions : Icons.business_center,
+              _getTabIcon(tabType),
               size: 80,
               color: Colors.grey,
             ),
             const SizedBox(height: 16),
             Text(
-              isPending ? 'No hay negocios pendientes' : 'No hay negocios aprobados',
+              emptyMessage,
               style: const TextStyle(fontSize: 18, color: Colors.grey),
             ),
             const SizedBox(height: 8),
             Text(
-              isPending
-                  ? 'Las solicitudes de empresas aparecerán aquí'
-                  : 'Las empresas aprobadas aparecerán aquí',
+              emptySubtitle,
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 20),
@@ -173,13 +193,22 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
         itemCount: businesses.length,
         itemBuilder: (context, index) {
           final business = businesses[index];
-          return _buildBusinessCard(business, adminViewModel, isPending);
+          return _buildBusinessCard(business, adminViewModel, tabType);
         },
       ),
     );
   }
 
-  Widget _buildBusinessCard(Map<String, dynamic> business, AdminViewModel adminViewModel, bool isPending) {
+  IconData _getTabIcon(String tabType) {
+    switch (tabType) {
+      case 'pending': return Icons.pending_actions;
+      case 'approved': return Icons.business_center;
+      case 'suspended': return Icons.pause_circle;
+      default: return Icons.business;
+    }
+  }
+
+  Widget _buildBusinessCard(Map<String, dynamic> business, AdminViewModel adminViewModel, String tabType) {
     String getBusinessName() => business['businessName'] ?? 'Sin nombre';
     String getBusinessEmail() => business['userEmail'] ?? 'Sin email';
     String getBusinessCategory() => business['category'] ?? 'General';
@@ -269,9 +298,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
             ),
           ],
         ),
-        trailing: isPending
-            ? _buildPendingBusinessActions(business, adminViewModel)
-            : _buildApprovedBusinessActions(business, adminViewModel),
+        trailing: _buildBusinessActions(business, adminViewModel, tabType),
         onTap: () {
           _showBusinessDetails(business);
         },
@@ -279,64 +306,104 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  Widget _buildPendingBusinessActions(Map<String, dynamic> business, AdminViewModel adminViewModel) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.check, color: Colors.green),
-          onPressed: adminViewModel.isLoading ? null : () => _showApproveDialog(business, adminViewModel),
-          tooltip: 'Aprobar negocio',
-        ),
-        IconButton(
-          icon: const Icon(Icons.close, color: Colors.red),
-          onPressed: adminViewModel.isLoading ? null : () => _showRejectDialog(business, adminViewModel),
-          tooltip: 'Rechazar negocio',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildApprovedBusinessActions(Map<String, dynamic> business, AdminViewModel adminViewModel) {
+  Widget _buildBusinessActions(Map<String, dynamic> business, AdminViewModel adminViewModel, String tabType) {
     String businessStatus = business['status'] ?? '';
 
-    return PopupMenuButton<String>(
-      onSelected: (value) => _handleBusinessAction(value, business, adminViewModel),
-      itemBuilder: (context) => [
-        if (businessStatus == 'approved')
-          const PopupMenuItem(
-            value: 'suspend',
-            child: Row(
-              children: [
-                Icon(Icons.pause, size: 20, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('Suspender'),
-              ],
+    switch (tabType) {
+      case 'pending':
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.check, color: Colors.green),
+              onPressed: adminViewModel.isLoading ? null : () => _showApproveDialog(business, adminViewModel),
+              tooltip: 'Aprobar negocio',
             ),
-          ),
-        if (businessStatus == 'suspended')
-          const PopupMenuItem(
-            value: 'activate',
-            child: Row(
-              children: [
-                Icon(Icons.play_arrow, size: 20, color: Colors.green),
-                SizedBox(width: 8),
-                Text('Activar'),
-              ],
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              onPressed: adminViewModel.isLoading ? null : () => _showRejectDialog(business, adminViewModel),
+              tooltip: 'Rechazar negocio',
             ),
-          ),
-        const PopupMenuItem(
-          value: 'view_details',
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, size: 20),
-              SizedBox(width: 8),
-              Text('Ver detalles'),
-            ],
-          ),
-        ),
-      ],
-    );
+          ],
+        );
+
+      case 'approved':
+        return PopupMenuButton<String>(
+          onSelected: (value) => _handleBusinessAction(value, business, adminViewModel),
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'suspend',
+              child: Row(
+                children: [
+                  Icon(Icons.pause, size: 20, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Suspender'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, size: 20, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Eliminar'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'view_details',
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20),
+                  SizedBox(width: 8),
+                  Text('Ver detalles'),
+                ],
+              ),
+            ),
+          ],
+        );
+
+      case 'suspended':
+        return PopupMenuButton<String>(
+          onSelected: (value) => _handleBusinessAction(value, business, adminViewModel),
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'activate',
+              child: Row(
+                children: [
+                  Icon(Icons.play_arrow, size: 20, color: Colors.green),
+                  SizedBox(width: 8),
+                  Text('Activar'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, size: 20, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Eliminar'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'view_details',
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20),
+                  SizedBox(width: 8),
+                  Text('Ver detalles'),
+                ],
+              ),
+            ),
+          ],
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   void _handleBusinessAction(String action, Map<String, dynamic> business, AdminViewModel adminViewModel) {
@@ -355,6 +422,9 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        break;
+      case 'delete':
+        _showDeleteDialog(business, adminViewModel);
         break;
       case 'view_details':
         _showBusinessDetails(business);
@@ -463,6 +533,48 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
+  void _showDeleteDialog(Map<String, dynamic> business, AdminViewModel adminViewModel) {
+    String businessId = business['id'] ?? '';
+    String businessName = business['businessName'] ?? 'Negocio';
+    String businessStatus = business['status'] ?? '';
+
+    String title = 'Eliminar Negocio';
+    String content = '¿Estás seguro de que quieres eliminar permanentemente el negocio "$businessName"?';
+
+    if (businessStatus == 'approved' || businessStatus == 'suspended') {
+      content += '\n\n⚠️ El usuario perderá su rol de empresa y volverá a ser usuario normal.';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              adminViewModel.deleteBusiness(businessId);
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Negocio "$businessName" eliminado permanentemente'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showBusinessDetails(Map<String, dynamic> business) {
     String businessName = business['businessName'] ?? 'Sin nombre';
     String userEmail = business['userEmail'] ?? 'Sin email';
@@ -536,16 +648,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
       ),
     );
   }
-
-  // Helper methods para acceder a las propiedades del Map
-  String getBusinessName(Map<String, dynamic> business) => business['businessName'] ?? 'Sin nombre';
-  String getBusinessEmail(Map<String, dynamic> business) => business['userEmail'] ?? 'Sin email';
-  String getBusinessCategory(Map<String, dynamic> business) => business['category'] ?? 'General';
-  String getBusinessAddress(Map<String, dynamic> business) => business['address'] ?? 'Sin dirección';
-  String getBusinessPhone(Map<String, dynamic> business) => business['phone'] ?? 'No disponible';
-  String getBusinessDescription(Map<String, dynamic> business) => business['description'] ?? 'Sin descripción';
-  String getBusinessStatus(Map<String, dynamic> business) => business['status'] ?? 'pending';
-  String getBusinessId(Map<String, dynamic> business) => business['id'] ?? '';
 
   @override
   void dispose() {
