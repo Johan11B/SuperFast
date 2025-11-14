@@ -1,3 +1,4 @@
+// lib/domain/entities/user_entity.dart (ACTUALIZADO)
 class UserEntity {
   final String id;
   final String email;
@@ -12,6 +13,28 @@ class UserEntity {
     this.photoUrl,
     required this.role,
   });
+
+  // Método para convertir a Map
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'email': email,
+      'name': name,
+      'photoUrl': photoUrl,
+      'role': role,
+    };
+  }
+
+  // Factory constructor desde Map
+  factory UserEntity.fromMap(Map<String, dynamic> map) {
+    return UserEntity(
+      id: map['id'] ?? '',
+      email: map['email'] ?? '',
+      name: map['name'],
+      photoUrl: map['photoUrl'],
+      role: map['role'] ?? 'user',
+    );
+  }
 
   @override
   bool operator ==(Object other) {
@@ -32,5 +55,10 @@ class UserEntity {
     name.hashCode ^
     photoUrl.hashCode ^
     role.hashCode;
+  }
+
+  @override
+  String toString() {
+    return 'UserEntity(id: $id, email: $email, name: $name, role: $role)';
   }
 }

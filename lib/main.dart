@@ -4,12 +4,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 // Importaciones
-import 'presentation/screens/auth/auth_wrapper.dart'; // ✅ NUEVO IMPORT
+import 'presentation/screens/auth/auth_wrapper.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/admin_viewmodel.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/datasources/auth_remote_datasource.dart';
 import 'core/services/role_service.dart';
+import 'core/services/business_service.dart';
+import 'core/services/order_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +27,8 @@ class SuperFastApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider(create: (_) => RoleService()),
+        Provider(create: (_) => BusinessService()),
+        Provider(create: (_) => OrderService()),
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
             authRepository: AuthRepository(
@@ -46,10 +50,8 @@ class SuperFastApp extends StatelessWidget {
           primaryColor: const Color(0xFF008C9E),
           scaffoldBackgroundColor: const Color(0xFFEFEFEF),
         ),
-        home: const AuthWrapper(), // ✅ USAR NUEVO AUTHWRAPPER
+        home: const AuthWrapper(),
       ),
     );
   }
 }
-
-// ✅ ELIMINAR COMPLETAMENTE la clase AuthWrapper vieja que estaba aquí

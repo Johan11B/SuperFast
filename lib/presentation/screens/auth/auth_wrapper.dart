@@ -16,9 +16,7 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  String? _lastUserId;
-  String? _lastRole;
-  bool _isNavigating = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -28,7 +26,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   void _initializeAuth() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthViewModel>().initializeAuthListener();
+      final authViewModel = context.read<AuthViewModel>();
+      authViewModel.initializeAuthListener();
+      setState(() {
+        _isInitialized = true;
+      });
     });
   }
 
@@ -36,79 +38,40 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     final authViewModel = context.watch<AuthViewModel>();
 
+    if (!_isInitialized) {
+      return _buildLoadingScreen('Inicializando...');
+    }
+
     return StreamBuilder<UserEntity?>(
       stream: authViewModel.authRepository.authStateChanges,
       builder: (context, snapshot) {
-        debugPrint('🔄 AuthWrapper - Estado: ${snapshot.connectionState}, '
-            'Tiene datos: ${snapshot.hasData}, '
-            'Error: ${snapshot.error}');
-
         // Mostrar loading durante la inicialización
         if (snapshot.connectionState == ConnectionState.waiting) {
-          debugPrint('⏳ AuthWrapper - Esperando estado de autenticación...');
           return _buildLoadingScreen('Verificando sesión...');
         }
 
         // Si hay error en el stream
         if (snapshot.hasError) {
-          debugPrint('❌ AuthWrapper - Error en stream: ${snapshot.error}');
+          debugPrint('❌ AuthWrapper - Error: ${snapshot.error}');
           return _buildErrorScreen(snapshot.error.toString());
         }
 
         // Si no hay usuario autenticado
         if (!snapshot.hasData || snapshot.data == null) {
-          debugPrint('🚫 AuthWrapper - No hay usuario, mostrando LoginPage');
-          _resetLastUser();
           return const LoginPage();
         }
 
-        // Usuario autenticado
+        // Usuario autenticado - navegar directamente
         final user = snapshot.data!;
-        debugPrint('✅ AuthWrapper - Usuario autenticado: ${user.email} con rol: ${user.role}');
+        debugPrint('✅ AuthWrapper - Usuario: ${user.email}, Rol: ${user.role}');
 
-        return _handleAuthenticatedUser(user);
+        return _getHomeScreenByRole(user.role);
       },
     );
   }
 
-  Widget _handleAuthenticatedUser(UserEntity user) {
-    final currentUserId = user.id;
-    final currentRole = user.role;
-
-    // Verificar si es un usuario/rol diferente al anterior
-    final isNewUserOrRole = _lastUserId != currentUserId || _lastRole != currentRole;
-
-    debugPrint('🔍 Comparación usuario: $_lastUserId -> $currentUserId');
-    debugPrint('🔍 Comparación rol: $_lastRole -> $currentRole');
-    debugPrint('🔍 isNewUserOrRole: $isNewUserOrRole, _isNavigating: $_isNavigating');
-
-    if (isNewUserOrRole && !_isNavigating) {
-      debugPrint('🎯 Navegando a pantalla de $currentRole (Usuario: ${user.email})');
-
-      _lastUserId = currentUserId;
-      _lastRole = currentRole;
-      _isNavigating = true;
-
-      // Navegar inmediatamente usando post-frame callback
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _navigateBasedOnRole(currentRole);
-      });
-
-      // Mostrar loading mientras navega
-      return _buildLoadingScreen('Cargando aplicación...');
-    }
-
-    // Si ya estamos en la pantalla correcta, mostrar el contenido
-    // Pero si estamos en proceso de navegación, seguir mostrando loading
-    if (_isNavigating) {
-      return _buildLoadingScreen('Cargando aplicación...');
-    }
-
-    // Si ya estamos en la pantalla correcta, mostrar el contenido real
-    return _getCurrentScreen(user.role);
-  }
-
-  Widget _getCurrentScreen(String role) {
+  // Método simplificado para obtener pantalla por rol
+  Widget _getHomeScreenByRole(String role) {
     switch (role) {
       case 'admin':
         return const AdminPanel();
@@ -119,33 +82,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       default:
         return const LoginPage();
     }
-  }
-
-  void _navigateBasedOnRole(String role) {
-    debugPrint('🚀 Ejecutando navegación a: $role');
-
-    try {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => _getCurrentScreen(role)),
-            (route) => false,
-      );
-      debugPrint('✅ Navegación completada a: $role');
-    } catch (e) {
-      debugPrint('❌ Error en navegación: $e');
-    } finally {
-      // Resetear flag después de un delay
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        _isNavigating = false;
-        debugPrint('🔄 Flag _isNavigating resetado a false');
-      });
-    }
-  }
-
-  void _resetLastUser() {
-    _lastUserId = null;
-    _lastRole = null;
-    _isNavigating = false;
-    debugPrint('🔄 Estado resetado: _lastUserId: null, _lastRole: null, _isNavigating: false');
   }
 
   Widget _buildLoadingScreen(String message) {
@@ -208,9 +144,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
-                  setState(() {});
-                },
+                onPressed: () => setState(() {}),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
@@ -222,11 +156,5 @@ class _AuthWrapperState extends State<AuthWrapper> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _resetLastUser();
-    super.dispose();
   }
 }

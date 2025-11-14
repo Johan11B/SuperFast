@@ -5,6 +5,12 @@ import '../../viewmodels/auth_viewmodel.dart';
 import '../settings/ajustes_page.dart';
 import '../performance/performance_results_page.dart';
 
+// Importar las nuevas pantallas
+import 'admin_users_screen.dart';
+import 'admin_businesses_screen.dart';
+import 'admin_orders_screen.dart';
+import 'admin_reports_screen.dart';
+
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
 
@@ -134,17 +140,17 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
-  // Widgets para las diferentes pantallas
+  // Widgets para las diferentes pantallas - ACTUALIZADO
   final List<Widget> _widgetOptions = <Widget>[
     const _AdminDashboardContent(),
-    const Center(child: Text('Pantalla de Usuarios', style: TextStyle(fontSize: 30))),
-    const Center(child: Text('Pantalla de Negocios', style: TextStyle(fontSize: 30))),
-    const Center(child: Text('Pantalla de Pedidos', style: TextStyle(fontSize: 30))),
-    const Center(child: Text('Pantalla de Reportes', style: TextStyle(fontSize: 30))),
+    const AdminUsersScreen(),
+    const AdminBusinessesScreen(),
+    const AdminOrdersScreen(),
+    const AdminReportsScreen(),
   ];
 }
 
-// CONTENIDO DEL DASHBOARD
+// CONTENIDO DEL DASHBOARD - MEJORADO
 class _AdminDashboardContent extends StatelessWidget {
   const _AdminDashboardContent();
 
@@ -161,7 +167,7 @@ class _AdminDashboardContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sección de Estadísticas
+          // Sección de Estadísticas - MEJORADA
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -169,8 +175,8 @@ class _AdminDashboardContent extends StatelessWidget {
                 child: _StatBox(
                   title: "Pedidos Activos",
                   value: stats['activeOrders'].toString(),
-                  icon: Icons.arrow_upward,
-                  color: Colors.green,
+                  icon: Icons.shopping_cart,
+                  color: Colors.blue,
                   primaryColor: primaryColor,
                 ),
               ),
@@ -179,8 +185,33 @@ class _AdminDashboardContent extends StatelessWidget {
                 child: _StatBox(
                   title: "Negocios Pendientes",
                   value: stats['pendingBusinesses'].toString(),
-                  icon: Icons.arrow_downward,
-                  color: Colors.red,
+                  icon: Icons.business,
+                  color: Colors.orange,
+                  primaryColor: primaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: _StatBox(
+                  title: "Total Usuarios",
+                  value: stats['totalUsers'].toString(),
+                  icon: Icons.people,
+                  color: Colors.green,
+                  primaryColor: primaryColor,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _StatBox(
+                  title: "Ingresos Totales",
+                  value: "\$${stats['totalRevenue'].toStringAsFixed(2)}",
+                  icon: Icons.attach_money,
+                  color: Colors.purple,
                   primaryColor: primaryColor,
                 ),
               ),
@@ -188,7 +219,7 @@ class _AdminDashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Tarjeta de Actividad Reciente
+          // Tarjeta de Actividad Reciente - MEJORADA
           _buildCard(
             context,
             title: "Actividad reciente",
@@ -197,9 +228,21 @@ class _AdminDashboardContent extends StatelessWidget {
               children: activities.map((activity) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    activity['message'],
-                    style: const TextStyle(fontSize: 16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _getActivityIcon(activity['type']),
+                        color: _getActivityColor(activity['type']),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          activity['message'],
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }).toList(),
@@ -207,13 +250,65 @@ class _AdminDashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Tarjeta de Alertas
+          // Tarjeta de Alertas - MEJORADA
           _buildCard(
             context,
-            title: "Alertas",
-            content: Text(
-                "${stats['pendingReports']} nuevos reportes pendientes",
-                style: const TextStyle(fontSize: 16)
+            title: "Alertas del Sistema",
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAlertItem(
+                  Icons.warning,
+                  Colors.orange,
+                  "${stats['pendingBusinesses']} negocios pendientes de aprobación",
+                ),
+                _buildAlertItem(
+                  Icons.assignment,
+                  Colors.blue,
+                  "${stats['pendingReports']} reportes pendientes de revisión",
+                ),
+                _buildAlertItem(
+                  Icons.trending_up,
+                  Colors.green,
+                  "Crecimiento del 15% en pedidos este mes",
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getActivityIcon(String type) {
+    switch (type) {
+      case 'user': return Icons.person;
+      case 'business': return Icons.business;
+      case 'order': return Icons.shopping_cart;
+      default: return Icons.notifications;
+    }
+  }
+
+  Color _getActivityColor(String type) {
+    switch (type) {
+      case 'user': return Colors.blue;
+      case 'business': return Colors.orange;
+      case 'order': return Colors.green;
+      default: return Colors.grey;
+    }
+  }
+
+  Widget _buildAlertItem(IconData icon, Color color, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
             ),
           ),
         ],
@@ -255,7 +350,7 @@ class _AdminDashboardContent extends StatelessWidget {
   }
 }
 
-// CAJA DE ESTADÍSTICAS
+// CAJA DE ESTADÍSTICAS - MANTENIDO
 class _StatBox extends StatelessWidget {
   final String title;
   final String value;
@@ -324,5 +419,4 @@ class _StatBox extends StatelessWidget {
       ),
     );
   }
-
 }
