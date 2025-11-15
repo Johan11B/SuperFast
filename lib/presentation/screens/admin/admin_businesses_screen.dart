@@ -1,7 +1,7 @@
-// lib/presentation/screens/admin/admin_businesses_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
+import '../../../domain/entities/business_entity.dart'; // ✅ IMPORTAR LA ENTIDAD
 
 class AdminBusinessesScreen extends StatefulWidget {
   const AdminBusinessesScreen({super.key});
@@ -36,7 +36,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     final adminViewModel = context.watch<AdminViewModel>();
 
     return DefaultTabController(
-      length: 3, // Ahora son 3 pestañas
+      length: 3,
       child: Scaffold(
         backgroundColor: const Color(0xFFEFEFEF),
         appBar: AppBar(
@@ -90,13 +90,9 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
         ),
         body: TabBarView(
           children: [
-            // Pestaña de Negocios Pendientes
+            // ✅ CAMBIADO: Usar BusinessEntity directamente
             _buildBusinessesList(adminViewModel.pendingBusinesses, adminViewModel, 'pending'),
-
-            // Pestaña de Negocios Aprobados
             _buildBusinessesList(adminViewModel.approvedBusinesses, adminViewModel, 'approved'),
-
-            // Pestaña de Negocios Suspendidos
             _buildBusinessesList(adminViewModel.suspendedBusinesses, adminViewModel, 'suspended'),
           ],
         ),
@@ -122,7 +118,8 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  Widget _buildBusinessesList(List<Map<String, dynamic>> businesses, AdminViewModel adminViewModel, String tabType) {
+  // ✅ CAMBIADO: Ahora recibe List<BusinessEntity>
+  Widget _buildBusinessesList(List<BusinessEntity> businesses, AdminViewModel adminViewModel, String tabType) {
     if (adminViewModel.isLoadingBusinesses && businesses.isEmpty) {
       return const Center(
         child: Column(
@@ -208,47 +205,21 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  Widget _buildBusinessCard(Map<String, dynamic> business, AdminViewModel adminViewModel, String tabType) {
-    String getBusinessName() => business['businessName'] ?? 'Sin nombre';
-    String getBusinessEmail() => business['userEmail'] ?? 'Sin email';
-    String getBusinessCategory() => business['category'] ?? 'General';
-    String getBusinessStatus() => business['status'] ?? 'pending';
-
-    Color getStatusColor(String status) {
-      switch (status) {
-        case 'approved': return Colors.green;
-        case 'pending': return Colors.orange;
-        case 'rejected': return Colors.red;
-        case 'suspended': return Colors.grey;
-        default: return Colors.grey;
-      }
-    }
-
-    String getStatusDisplayText(String status) {
-      switch (status) {
-        case 'approved': return 'APROBADO';
-        case 'pending': return 'PENDIENTE';
-        case 'rejected': return 'RECHAZADO';
-        case 'suspended': return 'SUSPENDIDO';
-        default: return status.toUpperCase();
-      }
-    }
-
-    String getBusinessId() => business['id'] ?? '';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity en lugar de Map
+  Widget _buildBusinessCard(BusinessEntity business, AdminViewModel adminViewModel, String tabType) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: getStatusColor(getBusinessStatus()),
+          backgroundColor: business.statusColor, // ✅ USAR PROPIEDAD DE LA ENTIDAD
           child: const Icon(
             Icons.business,
             color: Colors.white,
           ),
         ),
         title: Text(
-          getBusinessName(),
+          business.name, // ✅ USAR PROPIEDAD DIRECTA
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Column(
@@ -256,7 +227,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              getBusinessEmail(),
+              business.email, // ✅ USAR PROPIEDAD DIRECTA
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
@@ -265,15 +236,15 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: getStatusColor(getBusinessStatus()).withOpacity(0.1),
+                    color: business.statusColor.withOpacity(0.1), // ✅ USAR PROPIEDAD DE LA ENTIDAD
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: getStatusColor(getBusinessStatus())),
+                    border: Border.all(color: business.statusColor), // ✅ USAR PROPIEDAD DE LA ENTIDAD
                   ),
                   child: Text(
-                    getStatusDisplayText(getBusinessStatus()),
+                    business.statusDisplayText, // ✅ USAR PROPIEDAD DE LA ENTIDAD
                     style: TextStyle(
                       fontSize: 12,
-                      color: getStatusColor(getBusinessStatus()),
+                      color: business.statusColor, // ✅ USAR PROPIEDAD DE LA ENTIDAD
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -287,7 +258,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                     border: Border.all(color: Colors.blue),
                   ),
                   child: Text(
-                    getBusinessCategory(),
+                    business.category, // ✅ USAR PROPIEDAD DIRECTA
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.blue,
@@ -306,9 +277,8 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  Widget _buildBusinessActions(Map<String, dynamic> business, AdminViewModel adminViewModel, String tabType) {
-    String businessStatus = business['status'] ?? '';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  Widget _buildBusinessActions(BusinessEntity business, AdminViewModel adminViewModel, String tabType) {
     switch (tabType) {
       case 'pending':
         return Row(
@@ -406,19 +376,17 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  void _handleBusinessAction(String action, Map<String, dynamic> business, AdminViewModel adminViewModel) {
-    String businessId = business['id'] ?? '';
-    String businessName = business['businessName'] ?? 'Negocio';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  void _handleBusinessAction(String action, BusinessEntity business, AdminViewModel adminViewModel) {
     switch (action) {
       case 'suspend':
         _showSuspendDialog(business, adminViewModel);
         break;
       case 'activate':
-        adminViewModel.activateBusiness(businessId);
+        adminViewModel.activateBusiness(business.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Negocio $businessName activado'),
+            content: Text('Negocio ${business.name} activado'),
             backgroundColor: Colors.green,
           ),
         );
@@ -432,15 +400,13 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  void _showApproveDialog(Map<String, dynamic> business, AdminViewModel adminViewModel) {
-    String businessId = business['id'] ?? '';
-    String businessName = business['businessName'] ?? 'Negocio';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  void _showApproveDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Aprobar Negocio'),
-        content: Text('¿Estás seguro de que quieres aprobar el negocio "$businessName"?'),
+        content: Text('¿Estás seguro de que quieres aprobar el negocio "${business.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -448,11 +414,11 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              adminViewModel.approveBusiness(businessId);
+              adminViewModel.approveBusiness(business.id);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Negocio "$businessName" aprobado'),
+                  content: Text('Negocio "${business.name}" aprobado'),
                   backgroundColor: Colors.green,
                   duration: const Duration(seconds: 3),
                 ),
@@ -466,15 +432,13 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  void _showRejectDialog(Map<String, dynamic> business, AdminViewModel adminViewModel) {
-    String businessId = business['id'] ?? '';
-    String businessName = business['businessName'] ?? 'Negocio';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  void _showRejectDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Rechazar Negocio'),
-        content: Text('¿Estás seguro de que quieres rechazar el negocio "$businessName"?'),
+        content: Text('¿Estás seguro de que quieres rechazar el negocio "${business.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -482,11 +446,11 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              adminViewModel.rejectBusiness(businessId);
+              adminViewModel.rejectBusiness(business.id);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Negocio "$businessName" rechazado'),
+                  content: Text('Negocio "${business.name}" rechazado'),
                   backgroundColor: Colors.red,
                   duration: const Duration(seconds: 3),
                 ),
@@ -500,15 +464,13 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  void _showSuspendDialog(Map<String, dynamic> business, AdminViewModel adminViewModel) {
-    String businessId = business['id'] ?? '';
-    String businessName = business['businessName'] ?? 'Negocio';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  void _showSuspendDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Suspender Negocio'),
-        content: Text('¿Estás seguro de que quieres suspender el negocio "$businessName"?'),
+        content: Text('¿Estás seguro de que quieres suspender el negocio "${business.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -516,11 +478,11 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              adminViewModel.suspendBusiness(businessId);
+              adminViewModel.suspendBusiness(business.id);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Negocio "$businessName" suspendido'),
+                  content: Text('Negocio "${business.name}" suspendido'),
                   backgroundColor: Colors.orange,
                 ),
               );
@@ -533,15 +495,12 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  void _showDeleteDialog(Map<String, dynamic> business, AdminViewModel adminViewModel) {
-    String businessId = business['id'] ?? '';
-    String businessName = business['businessName'] ?? 'Negocio';
-    String businessStatus = business['status'] ?? '';
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  void _showDeleteDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     String title = 'Eliminar Negocio';
-    String content = '¿Estás seguro de que quieres eliminar permanentemente el negocio "$businessName"?';
+    String content = '¿Estás seguro de que quieres eliminar permanentemente el negocio "${business.name}"?';
 
-    if (businessStatus == 'approved' || businessStatus == 'suspended') {
+    if (business.isApproved || business.isSuspended) {
       content += '\n\n⚠️ El usuario perderá su rol de empresa y volverá a ser usuario normal.';
     }
 
@@ -557,11 +516,11 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              adminViewModel.deleteBusiness(businessId);
+              adminViewModel.deleteBusiness(business.id);
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Negocio "$businessName" eliminado permanentemente'),
+                  content: Text('Negocio "${business.name}" eliminado permanentemente'),
                   backgroundColor: Colors.red,
                   duration: const Duration(seconds: 3),
                 ),
@@ -575,25 +534,8 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  void _showBusinessDetails(Map<String, dynamic> business) {
-    String businessName = business['businessName'] ?? 'Sin nombre';
-    String userEmail = business['userEmail'] ?? 'Sin email';
-    String category = business['category'] ?? 'General';
-    String address = business['address'] ?? 'Sin dirección';
-    String phone = business['phone'] ?? 'No disponible';
-    String description = business['description'] ?? 'Sin descripción';
-    String status = business['status'] ?? 'pending';
-
-    String getStatusDisplayText(String status) {
-      switch (status) {
-        case 'approved': return 'APROBADO';
-        case 'pending': return 'PENDIENTE';
-        case 'rejected': return 'RECHAZADO';
-        case 'suspended': return 'SUSPENDIDO';
-        default: return status.toUpperCase();
-      }
-    }
-
+  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  void _showBusinessDetails(BusinessEntity business) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -603,14 +545,21 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildDetailItem('Nombre:', businessName),
-              _buildDetailItem('Email:', userEmail),
-              _buildDetailItem('Categoría:', category),
-              _buildDetailItem('Dirección:', address),
-              _buildDetailItem('Teléfono:', phone),
-              _buildDetailItem('Estado:', getStatusDisplayText(status)),
-              if (description != 'Sin descripción')
-                _buildDetailItem('Descripción:', description),
+              _buildDetailItem('Nombre:', business.name),
+              _buildDetailItem('Email:', business.email),
+              _buildDetailItem('Categoría:', business.category),
+              _buildDetailItem('Dirección:', business.address),
+              _buildDetailItem('Teléfono:', business.phone ?? 'No disponible'),
+              _buildDetailItem('Estado:', business.statusDisplayText),
+              if (business.description != null && business.description!.isNotEmpty)
+                _buildDetailItem('Descripción:', business.description!),
+              if (business.rating != null)
+                _buildDetailItem('Rating:', '${business.rating!.toStringAsFixed(1)} ⭐'),
+              _buildDetailItem('Reseñas:', '${business.reviewCount} reseñas'),
+              if (business.createdAt != null)
+                _buildDetailItem('Creado:', _formatDate(business.createdAt!)),
+              if (business.updatedAt != null)
+                _buildDetailItem('Actualizado:', _formatDate(business.updatedAt!)),
             ],
           ),
         ),
@@ -624,6 +573,10 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
   Widget _buildDetailItem(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -631,7 +584,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
+            width: 100,
             child: Text(
               label,
               style: const TextStyle(fontWeight: FontWeight.bold),

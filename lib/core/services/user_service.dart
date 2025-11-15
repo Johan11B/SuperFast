@@ -1,4 +1,3 @@
-// lib/core/services/user_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/user_entity.dart';
 
@@ -56,7 +55,6 @@ class UserService {
     }
   }
 
-  // Obtener usuario por ID
   Future<UserEntity?> getUserById(String userId) async {
     try {
       final doc = await _firestore.collection('users').doc(userId).get();
@@ -77,10 +75,8 @@ class UserService {
     }
   }
 
-  // Buscar usuarios por email o nombre
   Future<List<UserEntity>> searchUsers(String query) async {
     try {
-      // Esta es una implementación básica, en una app real necesitarías índices
       final allUsers = await getAllUsers();
       return allUsers.where((user) {
         final emailMatch = user.email.toLowerCase().contains(query.toLowerCase());
@@ -90,6 +86,22 @@ class UserService {
     } catch (e) {
       print('❌ Error buscando usuarios: $e');
       return [];
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Obtener estadísticas de usuarios
+  Future<Map<String, int>> getUserStatistics() async {
+    try {
+      final allUsers = await getAllUsers();
+      return {
+        'total': allUsers.length,
+        'admin': allUsers.where((user) => user.role == 'admin').length,
+        'business': allUsers.where((user) => user.role == 'business').length,
+        'user': allUsers.where((user) => user.role == 'user').length,
+      };
+    } catch (e) {
+      print('❌ Error obteniendo estadísticas: $e');
+      return {'total': 0, 'admin': 0, 'business': 0, 'user': 0};
     }
   }
 }

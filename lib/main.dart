@@ -1,4 +1,3 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +9,7 @@ import 'presentation/viewmodels/admin_viewmodel.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/datasources/auth_remote_datasource.dart';
 import 'core/services/role_service.dart';
+import 'core/services/user_service.dart';
 import 'core/services/business_service.dart';
 import 'core/services/order_service.dart';
 
@@ -26,9 +26,13 @@ class SuperFastApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ✅ SERVICIOS
         Provider(create: (_) => RoleService()),
+        Provider(create: (_) => UserService()), // ✅ AGREGAR UserService
         Provider(create: (_) => BusinessService()),
         Provider(create: (_) => OrderService()),
+
+        // ✅ VIEWMODELS
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
             authRepository: AuthRepository(
@@ -38,8 +42,12 @@ class SuperFastApp extends StatelessWidget {
             roleService: context.read<RoleService>(),
           ),
         ),
+
         ChangeNotifierProvider<AdminViewModel>(
-          create: (context) => AdminViewModel(),
+          create: (context) => AdminViewModel(
+            userService: context.read<UserService>(), // ✅ AGREGAR PARÁMETROS
+            businessService: context.read<BusinessService>(), // ✅ AGREGAR PARÁMETROS
+          ),
         ),
       ],
       child: MaterialApp(
@@ -49,6 +57,7 @@ class SuperFastApp extends StatelessWidget {
           primarySwatch: Colors.teal,
           primaryColor: const Color(0xFF008C9E),
           scaffoldBackgroundColor: const Color(0xFFEFEFEF),
+          fontFamily: 'Roboto',
         ),
         home: const AuthWrapper(),
       ),

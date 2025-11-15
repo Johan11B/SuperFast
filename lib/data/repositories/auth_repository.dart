@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import '../models/user_model.dart';
@@ -8,11 +10,13 @@ import '../../core/services/role_service.dart';
 class AuthRepository implements IAuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final RoleService roleService;
+  final FirebaseFirestore _firestore;
 
   AuthRepository({
     required this.remoteDataSource,
     required this.roleService,
-  });
+    FirebaseFirestore? firestore,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance;
 
   @override
   Future<UserEntity?> signInWithEmail(String email, String password) async {
@@ -49,7 +53,16 @@ class AuthRepository implements IAuthRepository {
           final user = await remoteDataSource.signUpWithEmail(email, password);
           if (user != null) {
             await user.updateDisplayName(name);
-            await roleService.setUserRole(user.uid, 'user');
+
+            // ✅ GUARDAR USUARIO EN FIRESTORE CON TODOS LOS DATOS
+            await _saveUserToFirestore(
+              uid: user.uid,
+              email: email,
+              name: name,
+              photoUrl: user.photoURL,
+              role: 'user',
+            );
+
             return UserModel(
               id: user.uid,
               email: user.email ?? '',
@@ -77,7 +90,20 @@ class AuthRepository implements IAuthRepository {
           if (user != null) {
             print('✅ Usuario de Google autenticado: ${user.uid}');
 
-            // ✅ SOLO OBTENER EL ROL EXISTENTE - NO ASIGNAR AUTOMÁTICAMENTE
+            // ✅ VERIFICAR SI EL USUARIO YA EXISTE EN FIRESTORE
+            final userDoc = await _firestore.collection('users').doc(user.uid).get();
+
+            if (!userDoc.exists) {
+              // ✅ CREAR USUARIO EN FIRESTORE SI NO EXISTE
+              await _saveUserToFirestore(
+                uid: user.uid,
+                email: user.email!,
+                name: user.displayName ?? user.email!.split('@')[0],
+                photoUrl: user.photoURL,
+                role: 'user',
+              );
+            }
+
             final role = await roleService.getUserRole(user.uid);
             print('✅ Rol obtenido: $role');
 
@@ -96,6 +122,30 @@ class AuthRepository implements IAuthRepository {
         }
       },
     );
+  }
+
+  // ✅ MÉTODO AUXILIAR PARA GUARDAR USUARIO EN FIRESTORE
+  Future<void> _saveUserToFirestore({
+    required String uid,
+    required String email,
+    required String name,
+    required String? photoUrl,
+    required String role,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(uid).set({
+        'email': email,
+        'name': name,
+        'photoUrl': photoUrl,
+        'role': role,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ Usuario guardado en Firestore: $email');
+    } catch (e) {
+      print('❌ Error guardando usuario en Firestore: $e');
+      rethrow;
+    }
   }
 
   @override
