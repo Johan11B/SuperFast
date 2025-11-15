@@ -139,14 +139,8 @@ class _AdminPanelState extends State<AdminPanel> {
         currentIndex: adminViewModel.selectedIndex,
         onTap: (index) {
           adminViewModel.changeTab(index);
-          // Cargar datos específicos cuando se cambia de pestaña
-          if (index == 2) { // Pestaña de negocios
-            print('📊 Cambiando a pestaña de negocios - Recargando datos...');
-            context.read<AdminViewModel>().loadBusinesses();
-          } else if (index == 1) { // Pestaña de usuarios
-            print('👥 Cambiando a pestaña de usuarios - Recargando datos...');
-            context.read<AdminViewModel>().loadUsers();
-          }
+          // ✅ CORREGIDO: Eliminadas las llamadas redundantes a loadUsers y loadBusinesses
+          // Cada pantalla ahora maneja su propia carga de datos
         },
         selectedFontSize: 12,
         unselectedFontSize: 12,

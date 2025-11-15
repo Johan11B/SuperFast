@@ -13,17 +13,60 @@ class AdminUsersScreen extends StatefulWidget {
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'all';
+  bool _initialLoadCompleted = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUsers();
+    _loadInitialUsers();
   }
 
-  void _loadUsers() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminViewModel>().loadUsers();
+  void _loadInitialUsers() {
+    if (!_initialLoadCompleted && !_isLoading) {
+      print('🔄 Carga inicial de usuarios...');
+      setState(() {
+        _isLoading = true;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<AdminViewModel>().loadUsers().then((_) {
+          if (mounted) {
+            setState(() {
+              _initialLoadCompleted = true;
+              _isLoading = false;
+            });
+          }
+        }).catchError((error) {
+          print('❌ Error en carga inicial: $error');
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        });
+      });
+    }
+  }
+
+  // ✅ CORREGIDO: Ahora devuelve Future<void>
+  Future<void> _reloadUsers() async {
+    print('🔄 Recarga manual de usuarios...');
+    setState(() {
+      _isLoading = true;
     });
+
+    try {
+      await context.read<AdminViewModel>().loadUsers();
+    } catch (error) {
+      print('❌ Error al recargar usuarios: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -45,6 +88,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             child: _buildUsersList(adminViewModel),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _reloadUsers,
+        child: _isLoading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : const Icon(Icons.refresh),
+        tooltip: 'Recargar usuarios',
       ),
     );
   }
@@ -96,7 +146,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ),
                   IconButton(
                     icon: const Icon(Icons.refresh),
-                    onPressed: adminViewModel.isLoading ? null : _loadUsers,
+                    onPressed: _isLoading ? null : _reloadUsers,
                     tooltip: 'Recargar usuarios',
                   ),
                 ],
@@ -202,7 +252,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildUsersList(AdminViewModel adminViewModel) {
-    if (adminViewModel.isLoading && adminViewModel.users.isEmpty) {
+    if (_isLoading && adminViewModel.users.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -223,9 +273,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: () async {
-        await adminViewModel.loadUsers();
-      },
+      onRefresh: _reloadUsers, // ✅ CORREGIDO: Ahora _reloadUsers devuelve Future<void>
       child: ListView.builder(
         itemCount: filteredUsers.length,
         itemBuilder: (context, index) {
@@ -269,7 +317,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: _loadUsers,
+            onPressed: _reloadUsers,
             icon: const Icon(Icons.refresh),
             label: const Text('Recargar usuarios'),
           ),

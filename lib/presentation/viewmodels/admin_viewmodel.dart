@@ -27,6 +27,10 @@ class AdminViewModel extends ChangeNotifier {
   bool _isLoadingBusinesses = false;
   bool get isLoadingBusinesses => _isLoadingBusinesses;
 
+  // ✅ NUEVO: Control para evitar cargas duplicadas
+  bool _usersLoaded = false;
+  bool _businessesLoaded = false;
+
   // ========== DATOS ==========
   List<UserEntity> _users = [];
   List<UserEntity> get users => _users;
@@ -94,12 +98,19 @@ class AdminViewModel extends ChangeNotifier {
 
   // ========== MÉTODOS DE USUARIOS ==========
   Future<void> loadUsers() async {
+    // ✅ CORREGIDO: Evitar cargas duplicadas
+    if (_isLoading || _usersLoaded) {
+      print('⏭️  Saltando carga de usuarios (ya cargados o en progreso)');
+      return;
+    }
+
     try {
       _isLoading = true;
       _lastError = null;
       notifyListeners();
 
       _users = await _userService.getAllUsers();
+      _usersLoaded = true; // ✅ MARCADOR DE CARGA COMPLETADA
 
       print('✅ Usuarios cargados: ${_users.length}');
       for (var user in _users) {
@@ -114,6 +125,13 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
+  // ✅ NUEVO MÉTODO: Recarga forzada de usuarios
+  Future<void> reloadUsers() async {
+    print('🔄 Recarga forzada de usuarios...');
+    _usersLoaded = false; // ✅ RESET PARA PERMITIR RECARGA
+    await loadUsers();
+  }
+
   void updateUserSearch(String query) {
     _userSearchQuery = query;
     notifyListeners();
@@ -122,7 +140,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> changeUserRole(String userId, String newRole) async {
     try {
       await _userService.updateUserRole(userId, newRole);
-      await loadUsers();
+      await reloadUsers(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Rol cambiado a ${_getRoleDisplayName(newRole)}';
       notifyListeners();
@@ -137,7 +155,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> deleteUser(String userId) async {
     try {
       await _userService.deleteUser(userId);
-      await loadUsers();
+      await reloadUsers(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Usuario eliminado correctamente';
       notifyListeners();
@@ -151,12 +169,20 @@ class AdminViewModel extends ChangeNotifier {
 
   // ========== MÉTODOS DE NEGOCIOS ==========
   Future<void> loadBusinesses() async {
+    // ✅ CORREGIDO: Evitar cargas duplicadas
+    if (_isLoadingBusinesses || _businessesLoaded) {
+      print('⏭️  Saltando carga de negocios (ya cargados o en progreso)');
+      return;
+    }
+
     try {
       _isLoadingBusinesses = true;
       _lastError = null;
       notifyListeners();
 
       _businesses = await _businessService.getAllBusinesses();
+      _businessesLoaded = true; // ✅ MARCADOR DE CARGA COMPLETADA
+
       print('✅ Negocios cargados: ${_businesses.length}');
 
       // Log de negocios para debugging
@@ -172,6 +198,13 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
+  // ✅ NUEVO MÉTODO: Recarga forzada de negocios
+  Future<void> reloadBusinesses() async {
+    print('🔄 Recarga forzada de negocios...');
+    _businessesLoaded = false; // ✅ RESET PARA PERMITIR RECARGA
+    await loadBusinesses();
+  }
+
   void updateBusinessSearch(String query) {
     _businessSearchQuery = query;
     notifyListeners();
@@ -180,7 +213,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> approveBusiness(String businessId) async {
     try {
       await _businessService.updateBusinessStatus(businessId, 'approved');
-      await loadBusinesses();
+      await reloadBusinesses(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Negocio aprobado correctamente';
       notifyListeners();
@@ -195,7 +228,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> rejectBusiness(String businessId) async {
     try {
       await _businessService.updateBusinessStatus(businessId, 'rejected');
-      await loadBusinesses();
+      await reloadBusinesses(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Negocio rechazado correctamente';
       notifyListeners();
@@ -210,7 +243,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> suspendBusiness(String businessId) async {
     try {
       await _businessService.updateBusinessStatus(businessId, 'suspended');
-      await loadBusinesses();
+      await reloadBusinesses(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Negocio suspendido correctamente';
       notifyListeners();
@@ -225,7 +258,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> activateBusiness(String businessId) async {
     try {
       await _businessService.updateBusinessStatus(businessId, 'approved');
-      await loadBusinesses();
+      await reloadBusinesses(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Negocio activado correctamente';
       notifyListeners();
@@ -240,7 +273,7 @@ class AdminViewModel extends ChangeNotifier {
   Future<bool> deleteBusiness(String businessId) async {
     try {
       await _businessService.deleteBusiness(businessId);
-      await loadBusinesses();
+      await reloadBusinesses(); // ✅ Usar recarga forzada
 
       _lastSuccess = 'Negocio eliminado correctamente';
       notifyListeners();
@@ -259,11 +292,13 @@ class AdminViewModel extends ChangeNotifier {
       _lastError = null;
       notifyListeners();
 
-      // Cargar usuarios y negocios en paralelo
-      await Future.wait([
-        loadUsers(),
-        loadBusinesses(),
-      ]);
+      // ✅ CORREGIDO: Cargar solo si no están cargados
+      if (!_usersLoaded) {
+        await loadUsers();
+      }
+      if (!_businessesLoaded) {
+        await loadBusinesses();
+      }
 
       print('✅ Dashboard cargado: ${_users.length} usuarios, ${_businesses.length} negocios');
     } catch (e) {
@@ -418,6 +453,8 @@ class AdminViewModel extends ChangeNotifier {
     _isLoadingBusinesses = false;
     _lastError = null;
     _lastSuccess = null;
+    _usersLoaded = false; // ✅ RESET MARCADORES
+    _businessesLoaded = false; // ✅ RESET MARCADORES
     notifyListeners();
   }
 
@@ -450,14 +487,18 @@ class AdminViewModel extends ChangeNotifier {
 
   // ========== MÉTODOS DE ACTUALIZACIÓN EN TIEMPO REAL ==========
   void refreshData() {
+    _usersLoaded = false; // ✅ PERMITIR RECARGA
+    _businessesLoaded = false; // ✅ PERMITIR RECARGA
     loadDashboardData();
   }
 
   void refreshUsers() {
+    _usersLoaded = false; // ✅ PERMITIR RECARGA
     loadUsers();
   }
 
   void refreshBusinesses() {
+    _businessesLoaded = false; // ✅ PERMITIR RECARGA
     loadBusinesses();
   }
 }
