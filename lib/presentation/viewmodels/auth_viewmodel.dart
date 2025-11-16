@@ -1,6 +1,7 @@
 // lib/presentation/viewmodels/auth_viewmodel.dart
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import '../../core/utils/performance_manager.dart';
@@ -95,8 +96,35 @@ class AuthViewModel with ChangeNotifier {
             setLoading(false);
             return false;
           }
+        } on FirebaseAuthException catch (e) {
+          // ✅ MEJORADO: Manejo específico de errores de Firebase
+          String errorMessage;
+          switch (e.code) {
+            case 'invalid-credential':
+            case 'wrong-password':
+            case 'user-not-found':
+              errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.';
+              break;
+            case 'user-disabled':
+              errorMessage = 'Esta cuenta ha sido deshabilitada. Contacta al soporte.';
+              break;
+            case 'too-many-requests':
+              errorMessage = 'Demasiados intentos fallidos. Espera un momento e inténtalo de nuevo.';
+              break;
+            case 'network-request-failed':
+              errorMessage = 'Error de conexión. Verifica tu internet e inténtalo de nuevo.';
+              break;
+            case 'invalid-email':
+              errorMessage = 'El formato del email es inválido. Verifícalo.';
+              break;
+            default:
+              errorMessage = 'Error al iniciar sesión: ${e.message}';
+          }
+          setErrorMessage(errorMessage);
+          setLoading(false);
+          return false;
         } catch (e) {
-          setErrorMessage('Error al iniciar sesión: $e');
+          setErrorMessage('Error inesperado al iniciar sesión. Inténtalo de nuevo.');
           setLoading(false);
           return false;
         }
@@ -123,8 +151,27 @@ class AuthViewModel with ChangeNotifier {
             setLoading(false);
             return false;
           }
+        } on FirebaseAuthException catch (e) {
+          // ✅ MEJORADO: Manejo específico de errores de registro
+          String errorMessage;
+          switch (e.code) {
+            case 'email-already-in-use':
+              errorMessage = 'Este email ya está registrado. Inicia sesión o usa otro email.';
+              break;
+            case 'weak-password':
+              errorMessage = 'La contraseña es muy débil. Usa al menos 6 caracteres.';
+              break;
+            case 'invalid-email':
+              errorMessage = 'El formato del email es inválido. Verifícalo.';
+              break;
+            default:
+              errorMessage = 'Error al registrar: ${e.message}';
+          }
+          setErrorMessage(errorMessage);
+          setLoading(false);
+          return false;
         } catch (e) {
-          setErrorMessage('Error al registrar: $e');
+          setErrorMessage('Error inesperado al registrar. Inténtalo de nuevo.');
           setLoading(false);
           return false;
         }
@@ -151,8 +198,23 @@ class AuthViewModel with ChangeNotifier {
             setLoading(false);
             return false;
           }
+        } on FirebaseAuthException catch (e) {
+          String errorMessage;
+          switch (e.code) {
+            case 'account-exists-with-different-credential':
+              errorMessage = 'Ya existe una cuenta con este email usando otro método de inicio de sesión.';
+              break;
+            case 'network-request-failed':
+              errorMessage = 'Error de conexión. Verifica tu internet e inténtalo de nuevo.';
+              break;
+            default:
+              errorMessage = 'Error Google Sign-In: ${e.message}';
+          }
+          setErrorMessage(errorMessage);
+          setLoading(false);
+          return false;
         } catch (e) {
-          setErrorMessage('Error Google Sign-In: $e');
+          setErrorMessage('Error inesperado con Google Sign-In. Inténtalo de nuevo.');
           setLoading(false);
           return false;
         }
@@ -194,8 +256,23 @@ class AuthViewModel with ChangeNotifier {
           await authRepository.resetPassword(email);
           setLoading(false);
           return true;
+        } on FirebaseAuthException catch (e) {
+          String errorMessage;
+          switch (e.code) {
+            case 'user-not-found':
+              errorMessage = 'No existe una cuenta con este email.';
+              break;
+            case 'invalid-email':
+              errorMessage = 'El formato del email es inválido.';
+              break;
+            default:
+              errorMessage = 'Error al resetear password: ${e.message}';
+          }
+          setErrorMessage(errorMessage);
+          setLoading(false);
+          return false;
         } catch (e) {
-          setErrorMessage('Error al resetear password: $e');
+          setErrorMessage('Error inesperado al resetear password.');
           setLoading(false);
           return false;
         }

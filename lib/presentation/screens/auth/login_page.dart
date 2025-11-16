@@ -1,3 +1,4 @@
+// lib/presentation/screens/auth/login_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -24,6 +25,17 @@ class _LoginPageState extends State<LoginPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthViewModel>().initializeAuthListener();
     });
+
+    // ✅ AGREGADO: Limpiar error cuando el usuario empiece a escribir
+    emailController.addListener(_clearError);
+    passwordController.addListener(_clearError);
+  }
+
+  void _clearError() {
+    final authViewModel = context.read<AuthViewModel>();
+    if (authViewModel.errorMessage.isNotEmpty) {
+      authViewModel.clearError();
+    }
   }
 
   void _login() async {
@@ -31,7 +43,10 @@ class _LoginPageState extends State<LoginPage> {
 
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Por favor, completa todos los campos"))
+          const SnackBar(
+            content: Text("Por favor, completa todos los campos"),
+            backgroundColor: Colors.orange,
+          )
       );
       return;
     }
@@ -43,9 +58,8 @@ class _LoginPageState extends State<LoginPage> {
 
     // ✅ CORREGIDO: No redirigir manualmente - el AuthWrapper se encarga
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authViewModel.errorMessage))
-      );
+      // El mensaje de error ya se muestra en el widget de error
+      // No necesitamos mostrar SnackBar adicional
     }
     // Si es éxito, el AuthWrapper redirige automáticamente según el rol
   }
@@ -56,8 +70,12 @@ class _LoginPageState extends State<LoginPage> {
 
     // ✅ CORREGIDO: No redirigir manualmente - el AuthWrapper se encarga
     if (!success && mounted) {
+      // Mostrar SnackBar para errores de Google
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authViewModel.errorMessage))
+          SnackBar(
+            content: Text(authViewModel.errorMessage),
+            backgroundColor: Colors.red,
+          )
       );
     }
     // Si es éxito, el AuthWrapper redirige automáticamente según el rol
@@ -120,6 +138,39 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
+
+                // ✅ AGREGADO: Mensaje de error destacado
+                if (authViewModel.errorMessage.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20.0),
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      border: Border.all(color: Colors.red),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            authViewModel.errorMessage,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.red, size: 16),
+                          onPressed: () => authViewModel.clearError(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
 
                 // 2. Contenedor de Formulario
                 Container(
@@ -276,6 +327,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    emailController.removeListener(_clearError);
+    passwordController.removeListener(_clearError);
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
