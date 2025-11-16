@@ -1,196 +1,225 @@
+// lib/presentation/viewmodels/admin_viewmodel.dart
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/business_entity.dart';
 import '../../core/services/user_service.dart';
-import '../../core/services/business_service.dart';
+import '../../core/services/business_registration_service.dart';
 
 class AdminViewModel extends ChangeNotifier {
   final UserService _userService;
-  final BusinessService _businessService;
+  final BusinessRegistrationService _businessRegistrationService;
 
-  String? _lastError;
-  String? get lastError => _lastError;
-
-  String? _lastSuccess;
-  String? get lastSuccess => _lastSuccess;
-
-  AdminViewModel({
-    required UserService userService,
-    required BusinessService businessService,
-  })  : _userService = userService,
-        _businessService = businessService;
-
-  // ========== ESTADOS DE CARGA ==========
+  // ========== ESTADOS ==========
+  int _selectedIndex = 0;
   bool _isLoading = false;
-  bool get isLoading => _isLoading;
-
   bool _isLoadingBusinesses = false;
-  bool get isLoadingBusinesses => _isLoadingBusinesses;
+  bool _isLoadingUsers = false;
+  String _errorMessage = '';
+  String _successMessage = '';
 
-  // ✅ NUEVO: Control para evitar cargas duplicadas
+  // Control de carga
   bool _usersLoaded = false;
   bool _businessesLoaded = false;
 
   // ========== DATOS ==========
   List<UserEntity> _users = [];
-  List<UserEntity> get users => _users;
-
   List<BusinessEntity> _businesses = [];
-  List<BusinessEntity> get businesses => _businesses;
 
-  // ========== BÚSQUEDA Y FILTROS ==========
+  // ========== BÚSQUEDA ==========
   String _userSearchQuery = '';
   String _businessSearchQuery = '';
 
-  int _selectedIndex = 0;
+  // ========== ESTADÍSTICAS ==========
+  Map<String, int> _businessCounts = {
+    'pending': 0,
+    'approved': 0,
+    'suspended': 0,
+    'active': 0,
+    'total': 0,
+  };
+
+  // ========== CONSTRUCTOR ==========
+  AdminViewModel({
+    required UserService userService,
+    required BusinessRegistrationService businessRegistrationService,
+  })  : _userService = userService,
+        _businessRegistrationService = businessRegistrationService;
+
+  // ========== GETTERS ==========
   int get selectedIndex => _selectedIndex;
+  bool get isLoading => _isLoading;
+  bool get isLoadingBusinesses => _isLoadingBusinesses;
+  bool get isLoadingUsers => _isLoadingUsers;
+  String get errorMessage => _errorMessage;
+  String get successMessage => _successMessage;
 
-  // ========== GETTERS PARA USUARIOS FILTRADOS ==========
-  List<UserEntity> get filteredUsers {
-    if (_userSearchQuery.isEmpty) return _users;
+  // ✅ CORREGIDO: Mantener ambos getters para compatibilidad
+  List<UserEntity> get users => _users;
+  List<UserEntity> get filteredUsers => _filterUsers(_users); // Para AdminUsersScreen
 
-    return _users.where((user) {
-      final emailMatch = user.email.toLowerCase().contains(_userSearchQuery.toLowerCase());
-      final nameMatch = user.name?.toLowerCase().contains(_userSearchQuery.toLowerCase()) ?? false;
-      return emailMatch || nameMatch;
-    }).toList();
-  }
+  List<BusinessEntity> get businesses => _businesses;
+  List<BusinessEntity> get pendingBusinesses => _filterBusinesses(_businesses.where((b) => b.status == 'pending').toList());
+  List<BusinessEntity> get approvedBusinesses => _filterBusinesses(_businesses.where((b) => b.status == 'approved').toList());
+  List<BusinessEntity> get suspendedBusinesses => _filterBusinesses(_businesses.where((b) => b.status == 'suspended').toList());
+  List<BusinessEntity> get rejectedBusinesses => _filterBusinesses(_businesses.where((b) => b.status == 'rejected').toList());
 
-  // ========== GETTERS PARA NEGOCIOS FILTRADOS ==========
-  List<BusinessEntity> get filteredBusinesses {
-    if (_businessSearchQuery.isEmpty) return _businesses;
+  Map<String, int> get businessCounts => _businessCounts;
 
-    return _businesses.where((business) {
-      final name = business.name.toLowerCase();
-      final email = business.email.toLowerCase();
-      final category = business.category.toLowerCase();
-      final address = business.address.toLowerCase();
-
-      return name.contains(_businessSearchQuery.toLowerCase()) ||
-          email.contains(_businessSearchQuery.toLowerCase()) ||
-          category.contains(_businessSearchQuery.toLowerCase()) ||
-          address.contains(_businessSearchQuery.toLowerCase());
-    }).toList();
-  }
-
-  // ========== GETTERS PARA NEGOCIOS POR ESTADO ==========
-  List<BusinessEntity> get pendingBusinesses {
-    return filteredBusinesses.where((b) => b.status == 'pending').toList();
-  }
-
-  List<BusinessEntity> get approvedBusinesses {
-    return filteredBusinesses.where((b) => b.status == 'approved').toList();
-  }
-
-  List<BusinessEntity> get suspendedBusinesses {
-    return filteredBusinesses.where((b) => b.status == 'suspended').toList();
-  }
-
-  List<BusinessEntity> get rejectedBusinesses {
-    return filteredBusinesses.where((b) => b.status == 'rejected').toList();
-  }
-
-  // ========== MÉTODOS DE NAVEGACIÓN ==========
+  // ========== NAVEGACIÓN ==========
   void changeTab(int index) {
     _selectedIndex = index;
     notifyListeners();
   }
 
-  // ========== MÉTODOS DE USUARIOS ==========
-  Future<void> loadUsers() async {
-    // ✅ CORREGIDO: Evitar cargas duplicadas
-    if (_isLoading || _usersLoaded) {
-      print('⏭️  Saltando carga de usuarios (ya cargados o en progreso)');
-      return;
-    }
+  // ========== BÚSQUEDA ==========
+  void updateUserSearch(String query) {
+    _userSearchQuery = query.toLowerCase();
+    notifyListeners();
+  }
+
+  void updateBusinessSearch(String query) {
+    _businessSearchQuery = query.toLowerCase();
+    notifyListeners();
+  }
+
+  List<UserEntity> _filterUsers(List<UserEntity> list) {
+    if (_userSearchQuery.isEmpty) return list;
+    return list.where((user) =>
+    user.email.toLowerCase().contains(_userSearchQuery) ||
+        (user.name?.toLowerCase().contains(_userSearchQuery) ?? false) ||
+        user.id.toLowerCase().contains(_userSearchQuery)
+    ).toList();
+  }
+
+  List<BusinessEntity> _filterBusinesses(List<BusinessEntity> list) {
+    if (_businessSearchQuery.isEmpty) return list;
+    return list.where((business) =>
+    business.name.toLowerCase().contains(_businessSearchQuery) ||
+        business.email.toLowerCase().contains(_businessSearchQuery) ||
+        business.category.toLowerCase().contains(_businessSearchQuery) ||
+        business.address.toLowerCase().contains(_businessSearchQuery) ||
+        business.id.toLowerCase().contains(_businessSearchQuery)
+    ).toList();
+  }
+
+  // ========== CARGA DE DATOS DEL DASHBOARD ==========
+  Future<void> loadDashboardData() async {
+    if (_isLoading) return;
+
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
 
     try {
-      _isLoading = true;
-      _lastError = null;
-      notifyListeners();
-
-      _users = await _userService.getAllUsers();
-      _usersLoaded = true; // ✅ MARCADOR DE CARGA COMPLETADA
-
-      print('✅ Usuarios cargados: ${_users.length}');
-      for (var user in _users) {
-        print('👤 Usuario: ${user.name ?? "Sin nombre"} - ${user.email} - Rol: ${user.role}');
-      }
+      await Future.wait([
+        loadBusinessCounts(),
+        loadUsers(),
+        loadBusinesses(),
+      ]);
+      print('✅ Dashboard data cargado exitosamente');
     } catch (e) {
-      _lastError = 'Error cargando usuarios: $e';
-      print('❌ Error cargando usuarios: $e');
+      _errorMessage = 'Error cargando datos del dashboard: $e';
+      print('❌ Error cargando dashboard data: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // ✅ NUEVO MÉTODO: Recarga forzada de usuarios
-  Future<void> reloadUsers() async {
-    print('🔄 Recarga forzada de usuarios...');
-    _usersLoaded = false; // ✅ RESET PARA PERMITIR RECARGA
-    await loadUsers();
-  }
+  // ========== MÉTODOS DE USUARIOS ==========
+  Future<void> loadUsers() async {
+    if (_isLoadingUsers && _usersLoaded) return;
 
-  void updateUserSearch(String query) {
-    _userSearchQuery = query;
-    notifyListeners();
-  }
-
-  Future<bool> changeUserRole(String userId, String newRole) async {
     try {
-      await _userService.updateUserRole(userId, newRole);
-      await reloadUsers(); // ✅ Usar recarga forzada
+      _isLoadingUsers = true;
+      _errorMessage = '';
+      notifyListeners();
 
-      _lastSuccess = 'Rol cambiado a ${_getRoleDisplayName(newRole)}';
-      notifyListeners();
-      return true;
+      _users = await _userService.getAllUsers();
+      _usersLoaded = true;
+
+      print('✅ Usuarios cargados: ${_users.length}');
     } catch (e) {
-      _lastError = 'Error cambiando rol: $e';
+      _errorMessage = 'Error cargando usuarios: $e';
+      _users = [];
+      print('❌ Error cargando usuarios: $e');
+    } finally {
+      _isLoadingUsers = false;
       notifyListeners();
-      return false;
     }
   }
 
-  Future<bool> deleteUser(String userId) async {
+  Future<void> reloadUsers() async {
+    _usersLoaded = false;
+    await loadUsers();
+  }
+
+  Future<void> changeUserRole(String userId, String newRole) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _userService.updateUserRole(userId, newRole);
+      await reloadUsers();
+      _successMessage = 'Rol de usuario cambiado exitosamente';
+      _errorMessage = '';
+    } catch (e) {
+      _errorMessage = 'Error cambiando rol: $e';
+      _successMessage = '';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    _isLoading = true;
+    notifyListeners();
+
     try {
       await _userService.deleteUser(userId);
-      await reloadUsers(); // ✅ Usar recarga forzada
-
-      _lastSuccess = 'Usuario eliminado correctamente';
-      notifyListeners();
-      return true;
+      await reloadUsers();
+      _successMessage = 'Usuario eliminado exitosamente';
+      _errorMessage = '';
     } catch (e) {
-      _lastError = 'Error eliminando usuario: $e';
+      _errorMessage = 'Error eliminando usuario: $e';
+      _successMessage = '';
+    } finally {
+      _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 
   // ========== MÉTODOS DE NEGOCIOS ==========
   Future<void> loadBusinesses() async {
-    // ✅ CORREGIDO: Evitar cargas duplicadas
-    if (_isLoadingBusinesses || _businessesLoaded) {
-      print('⏭️  Saltando carga de negocios (ya cargados o en progreso)');
-      return;
-    }
+    if (_isLoadingBusinesses && _businessesLoaded) return;
+
+    _isLoadingBusinesses = true;
+    _errorMessage = '';
+    notifyListeners();
 
     try {
-      _isLoadingBusinesses = true;
-      _lastError = null;
-      notifyListeners();
+      // Cargar negocios pendientes y activos por separado
+      final pendingData = await _businessRegistrationService.getPendingRegistrations();
+      final activeData = await _businessRegistrationService.getActiveBusinesses();
 
-      _businesses = await _businessService.getAllBusinesses();
-      _businessesLoaded = true; // ✅ MARCADOR DE CARGA COMPLETADA
+      // Combinar y convertir a BusinessEntity
+      final allBusinessesData = [...pendingData, ...activeData];
+      _businesses = allBusinessesData.map((businessMap) {
+        return BusinessEntity.fromMap(businessMap);
+      }).toList();
+
+      _businessesLoaded = true;
 
       print('✅ Negocios cargados: ${_businesses.length}');
+      print('📊 Pendientes: ${pendingBusinesses.length}');
+      print('📊 Aprobados: ${approvedBusinesses.length}');
+      print('📊 Suspendidos: ${suspendedBusinesses.length}');
 
-      // Log de negocios para debugging
-      for (var business in _businesses.take(3)) {
-        print('🏪 Negocio: ${business.name} - ${business.status} - ${business.category}');
-      }
+      _errorMessage = '';
     } catch (e) {
-      _lastError = 'Error cargando negocios: $e';
+      _errorMessage = 'Error cargando negocios: $e';
+      _businesses = [];
       print('❌ Error cargando negocios: $e');
     } finally {
       _isLoadingBusinesses = false;
@@ -198,200 +227,177 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  // ✅ NUEVO MÉTODO: Recarga forzada de negocios
   Future<void> reloadBusinesses() async {
-    print('🔄 Recarga forzada de negocios...');
-    _businessesLoaded = false; // ✅ RESET PARA PERMITIR RECARGA
+    _businessesLoaded = false;
     await loadBusinesses();
   }
 
-  void updateBusinessSearch(String query) {
-    _businessSearchQuery = query;
+  Future<void> loadBusinessCounts() async {
+    try {
+      _businessCounts = await _businessRegistrationService.getBusinessCounts();
+      print('✅ Conteos de negocios cargados: $_businessCounts');
+    } catch (e) {
+      print('❌ Error cargando conteos de negocios: $e');
+      _businessCounts = {
+        'pending': 0,
+        'approved': 0,
+        'suspended': 0,
+        'active': 0,
+        'total': 0,
+      };
+    }
+  }
+
+  // ========== OPERACIONES DE NEGOCIOS ==========
+  Future<void> approveBusiness(String businessId) async {
+    _isLoading = true;
     notifyListeners();
-  }
 
-  Future<bool> approveBusiness(String businessId) async {
     try {
-      await _businessService.updateBusinessStatus(businessId, 'approved');
-      await reloadBusinesses(); // ✅ Usar recarga forzada
-
-      _lastSuccess = 'Negocio aprobado correctamente';
-      notifyListeners();
-      return true;
+      await _businessRegistrationService.approveBusinessRegistration(businessId);
+      await reloadBusinesses();
+      await reloadUsers(); // Para actualizar roles si es necesario
+      _successMessage = 'Negocio aprobado exitosamente';
+      _errorMessage = '';
     } catch (e) {
-      _lastError = 'Error aprobando negocio: $e';
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> rejectBusiness(String businessId) async {
-    try {
-      await _businessService.updateBusinessStatus(businessId, 'rejected');
-      await reloadBusinesses(); // ✅ Usar recarga forzada
-
-      _lastSuccess = 'Negocio rechazado correctamente';
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _lastError = 'Error rechazando negocio: $e';
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> suspendBusiness(String businessId) async {
-    try {
-      await _businessService.updateBusinessStatus(businessId, 'suspended');
-      await reloadBusinesses(); // ✅ Usar recarga forzada
-
-      _lastSuccess = 'Negocio suspendido correctamente';
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _lastError = 'Error suspendiendo negocio: $e';
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> activateBusiness(String businessId) async {
-    try {
-      await _businessService.updateBusinessStatus(businessId, 'approved');
-      await reloadBusinesses(); // ✅ Usar recarga forzada
-
-      _lastSuccess = 'Negocio activado correctamente';
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _lastError = 'Error activando negocio: $e';
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> deleteBusiness(String businessId) async {
-    try {
-      await _businessService.deleteBusiness(businessId);
-      await reloadBusinesses(); // ✅ Usar recarga forzada
-
-      _lastSuccess = 'Negocio eliminado correctamente';
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _lastError = 'Error eliminando negocio: $e';
-      notifyListeners();
-      return false;
-    }
-  }
-
-  // ========== MÉTODOS DEL DASHBOARD ==========
-  Future<void> loadDashboardData() async {
-    try {
-      _isLoading = true;
-      _lastError = null;
-      notifyListeners();
-
-      // ✅ CORREGIDO: Cargar solo si no están cargados
-      if (!_usersLoaded) {
-        await loadUsers();
-      }
-      if (!_businessesLoaded) {
-        await loadBusinesses();
-      }
-
-      print('✅ Dashboard cargado: ${_users.length} usuarios, ${_businesses.length} negocios');
-    } catch (e) {
-      _lastError = 'Error cargando dashboard: $e';
-      print('❌ Error cargando dashboard: $e');
+      _errorMessage = 'Error aprobando negocio: $e';
+      _successMessage = '';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  Future<void> rejectBusiness(String businessId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _businessRegistrationService.rejectBusinessRegistration(businessId);
+      await reloadBusinesses();
+      _successMessage = 'Negocio rechazado exitosamente';
+      _errorMessage = '';
+    } catch (e) {
+      _errorMessage = 'Error rechazando negocio: $e';
+      _successMessage = '';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> suspendBusiness(String businessId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _businessRegistrationService.suspendBusiness(businessId);
+      await reloadBusinesses();
+      _successMessage = 'Negocio suspendido exitosamente';
+      _errorMessage = '';
+    } catch (e) {
+      _errorMessage = 'Error suspendiendo negocio: $e';
+      _successMessage = '';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> activateBusiness(String businessId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _businessRegistrationService.activateBusiness(businessId);
+      await reloadBusinesses();
+      _successMessage = 'Negocio activado exitosamente';
+      _errorMessage = '';
+    } catch (e) {
+      _errorMessage = 'Error activando negocio: $e';
+      _successMessage = '';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteBusiness(String businessId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _businessRegistrationService.deleteBusiness(businessId);
+      await reloadBusinesses();
+      await reloadUsers(); // Para actualizar roles si es necesario
+      _successMessage = 'Negocio eliminado exitosamente';
+      _errorMessage = '';
+    } catch (e) {
+      _errorMessage = 'Error eliminando negocio: $e';
+      _successMessage = '';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ========== MÉTODOS DEL DASHBOARD ==========
   Map<String, dynamic> getDashboardStats() {
-    final totalUsers = _users.length;
-    final businessUsers = _users.where((user) => user.role == 'business').length;
-    final adminUsers = _users.where((user) => user.role == 'admin').length;
-    final regularUsers = _users.where((user) => user.role == 'user').length;
-
-    final pendingBusinessesCount = _businesses.where((b) => b.status == 'pending').length;
-    final approvedBusinessesCount = _businesses.where((b) => b.status == 'approved').length;
-    final suspendedBusinessesCount = _businesses.where((b) => b.status == 'suspended').length;
-    final rejectedBusinessesCount = _businesses.where((b) => b.status == 'rejected').length;
-    final activeBusinessesCount = approvedBusinessesCount;
-
-    // Calcular métricas adicionales
-    final totalRevenue = _calculateTotalRevenue();
-    final averageRating = _calculateAverageRating();
+    final userStats = _calculateUserStats();
 
     return {
-      'totalUsers': totalUsers,
-      'businessUsers': businessUsers,
-      'adminUsers': adminUsers,
-      'regularUsers': regularUsers,
-      'pendingBusinesses': pendingBusinessesCount,
-      'approvedBusinesses': approvedBusinessesCount,
-      'suspendedBusinesses': suspendedBusinessesCount,
-      'rejectedBusinesses': rejectedBusinessesCount,
-      'activeBusinesses': activeBusinessesCount,
-      'totalRevenue': totalRevenue,
-      'averageRating': averageRating,
+      'pendingBusinesses': _businessCounts['pending'] ?? 0,
+      'approvedBusinesses': _businessCounts['approved'] ?? 0,
+      'suspendedBusinesses': _businessCounts['suspended'] ?? 0,
+      'activeBusinesses': _businessCounts['active'] ?? 0,
+      'totalBusinesses': _businessCounts['total'] ?? 0,
+      'totalUsers': userStats['total'],
+      'activeUsers': userStats['user'],
+      'businessUsers': userStats['business'],
+      'adminUsers': userStats['admin'],
+      'activeOrders': 0,
+      'totalRevenue': 0.0,
+      'pendingReports': 0,
     };
   }
 
-  double _calculateTotalRevenue() {
-    // Placeholder para cálculo de ingresos
-    return 0.0;
-  }
-
-  double _calculateAverageRating() {
-    if (_businesses.isEmpty) return 0.0;
-
-    final ratedBusinesses = _businesses.where((b) => b.rating != null && b.rating! > 0).toList();
-    if (ratedBusinesses.isEmpty) return 0.0;
-
-    final totalRating = ratedBusinesses.map((b) => b.rating!).reduce((a, b) => a + b);
-    return totalRating / ratedBusinesses.length;
+  Map<String, int> _calculateUserStats() {
+    return {
+      'total': _users.length,
+      'admin': _users.where((user) => user.role == 'admin').length,
+      'business': _users.where((user) => user.role == 'business').length,
+      'user': _users.where((user) => user.role == 'user').length,
+    };
   }
 
   List<Map<String, dynamic>> getRecentActivity() {
     final activities = <Map<String, dynamic>>[];
 
-    // Agregar actividad de usuarios recientes
-    final recentUsers = _users.take(3).toList();
-    for (var user in recentUsers) {
-      activities.add({
-        'type': 'user',
-        'message': 'Nuevo usuario registrado: ${user.email}',
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 5)),
-        'userEmail': user.email,
-      });
-    }
-
-    // Agregar actividad de negocios pendientes
-    final pendingBusinesses = _businesses.where((b) => b.status == 'pending').take(2).toList();
-    for (var business in pendingBusinesses) {
+    // Agregar solicitudes recientes de negocios
+    for (final business in pendingBusinesses.take(3)) {
       activities.add({
         'type': 'business',
-        'message': 'Solicitud pendiente: ${business.name}',
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 15)),
+        'message': 'Nueva solicitud: ${business.name}',
+        'time': business.createdAt ?? DateTime.now(),
         'businessName': business.name,
       });
     }
 
-    // Ordenar por timestamp (más reciente primero)
-    activities.sort((a, b) => (b['timestamp'] as DateTime).compareTo(a['timestamp'] as DateTime));
+    // Agregar usuarios recientes
+    for (final user in _users.take(2)) {
+      activities.add({
+        'type': 'user',
+        'message': 'Nuevo usuario: ${user.email}',
+        'time': DateTime.now(),
+        'userEmail': user.email,
+      });
+    }
+
+    // Ordenar por tiempo (más reciente primero)
+    activities.sort((a, b) => (b['time'] as DateTime).compareTo(a['time'] as DateTime));
 
     return activities.take(5).toList();
   }
-
-  // ========== MÉTODOS ADICIONALES PARA ESTADÍSTICAS ==========
-  int get totalUsersCount => _users.length;
-  int get businessUsersCount => _users.where((user) => user.role == 'business').length;
-  int get adminUsersCount => _users.where((user) => user.role == 'admin').length;
-  int get regularUsersCount => _users.where((user) => user.role == 'user').length;
 
   // ========== MÉTODOS DE BÚSQUEDA AVANZADA ==========
   List<UserEntity> searchUsersByRole(String role) {
@@ -420,50 +426,6 @@ class AdminViewModel extends ChangeNotifier {
     return _businesses.where((business) => business.status == status).toList();
   }
 
-  // ========== MÉTODOS AUXILIARES ==========
-  String _getRoleDisplayName(String role) {
-    switch (role) {
-      case 'admin': return 'Administrador';
-      case 'business': return 'Empresa';
-      case 'user': return 'Usuario';
-      default: return role;
-    }
-  }
-
-  // ========== MÉTODOS DE RESET Y LIMPIEZA ==========
-  void clearMessages() {
-    _lastError = null;
-    _lastSuccess = null;
-    notifyListeners();
-  }
-
-  void clearSearch() {
-    _userSearchQuery = '';
-    _businessSearchQuery = '';
-    notifyListeners();
-  }
-
-  void reset() {
-    _users = [];
-    _businesses = [];
-    _userSearchQuery = '';
-    _businessSearchQuery = '';
-    _selectedIndex = 0;
-    _isLoading = false;
-    _isLoadingBusinesses = false;
-    _lastError = null;
-    _lastSuccess = null;
-    _usersLoaded = false; // ✅ RESET MARCADORES
-    _businessesLoaded = false; // ✅ RESET MARCADORES
-    notifyListeners();
-  }
-
-  // ========== MÉTODOS DE VALIDACIÓN ==========
-  bool get hasUsers => _users.isNotEmpty;
-  bool get hasBusinesses => _businesses.isNotEmpty;
-  bool get hasPendingBusinesses => pendingBusinesses.isNotEmpty;
-  bool get hasApprovedBusinesses => approvedBusinesses.isNotEmpty;
-
   // ========== MÉTODOS DE OBTENCIÓN DE DATOS ESPECÍFICOS ==========
   UserEntity? getUserById(String userId) {
     try {
@@ -485,20 +447,102 @@ class AdminViewModel extends ChangeNotifier {
     return _businesses.where((business) => business.ownerId == ownerId).toList();
   }
 
+  // ========== MÉTODOS DE ESTADÍSTICAS ==========
+  int get totalUsersCount => _users.length;
+  int get businessUsersCount => _users.where((user) => user.role == 'business').length;
+  int get adminUsersCount => _users.where((user) => user.role == 'admin').length;
+  int get regularUsersCount => _users.where((user) => user.role == 'user').length;
+
+  bool get hasUsers => _users.isNotEmpty;
+  bool get hasBusinesses => _businesses.isNotEmpty;
+  bool get hasPendingBusinesses => pendingBusinesses.isNotEmpty;
+  bool get hasApprovedBusinesses => approvedBusinesses.isNotEmpty;
+  bool get hasSuspendedBusinesses => suspendedBusinesses.isNotEmpty;
+
   // ========== MÉTODOS DE ACTUALIZACIÓN EN TIEMPO REAL ==========
   void refreshData() {
-    _usersLoaded = false; // ✅ PERMITIR RECARGA
-    _businessesLoaded = false; // ✅ PERMITIR RECARGA
+    _usersLoaded = false;
+    _businessesLoaded = false;
     loadDashboardData();
   }
 
   void refreshUsers() {
-    _usersLoaded = false; // ✅ PERMITIR RECARGA
+    _usersLoaded = false;
     loadUsers();
   }
 
   void refreshBusinesses() {
-    _businessesLoaded = false; // ✅ PERMITIR RECARGA
+    _businessesLoaded = false;
     loadBusinesses();
+  }
+
+  // ========== MÉTODOS DE LIMPIEZA ==========
+  void clearError() {
+    _errorMessage = '';
+    notifyListeners();
+  }
+
+  void clearSuccess() {
+    _successMessage = '';
+    notifyListeners();
+  }
+
+  void clearMessages() {
+    _errorMessage = '';
+    _successMessage = '';
+    notifyListeners();
+  }
+
+  void clearSearch() {
+    _userSearchQuery = '';
+    _businessSearchQuery = '';
+    notifyListeners();
+  }
+
+  void reset() {
+    _selectedIndex = 0;
+    _isLoading = false;
+    _isLoadingBusinesses = false;
+    _isLoadingUsers = false;
+    _errorMessage = '';
+    _successMessage = '';
+    _users = [];
+    _businesses = [];
+    _userSearchQuery = '';
+    _businessSearchQuery = '';
+    _usersLoaded = false;
+    _businessesLoaded = false;
+    _businessCounts = {
+      'pending': 0,
+      'approved': 0,
+      'suspended': 0,
+      'active': 0,
+      'total': 0,
+    };
+    notifyListeners();
+  }
+
+  // ========== MÉTODOS AUXILIARES ==========
+  String _getRoleDisplayName(String role) {
+    switch (role) {
+      case 'admin': return 'Administrador';
+      case 'business': return 'Empresa';
+      case 'user': return 'Usuario';
+      default: return role;
+    }
+  }
+
+  // ========== VALIDACIONES ==========
+  bool isValidRole(String role) {
+    return ['admin', 'business', 'user'].contains(role);
+  }
+
+  bool canChangeRole(UserEntity user, String newRole) {
+    // No permitir cambiar el rol del usuario actual si es el único admin
+    if (user.role == 'admin' && newRole != 'admin') {
+      final adminCount = _users.where((u) => u.role == 'admin').length;
+      return adminCount > 1;
+    }
+    return true;
   }
 }

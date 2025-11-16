@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +10,7 @@ import 'data/repositories/auth_repository.dart';
 import 'data/datasources/auth_remote_datasource.dart';
 import 'core/services/role_service.dart';
 import 'core/services/user_service.dart';
-import 'core/services/business_service.dart';
+import 'core/services/business_registration_service.dart';
 import 'core/services/order_service.dart';
 
 void main() async {
@@ -25,13 +26,13 @@ class SuperFastApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ✅ SERVICIOS
+        // Servicios
         Provider(create: (_) => RoleService()),
-        Provider(create: (_) => UserService()), // ✅ AGREGAR UserService
-        Provider(create: (_) => BusinessService()),
+        Provider(create: (_) => UserService()),
+        Provider(create: (_) => BusinessRegistrationService()),
         Provider(create: (_) => OrderService()),
 
-        // ✅ VIEWMODELS
+        // ViewModels
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
             authRepository: AuthRepository(
@@ -44,8 +45,8 @@ class SuperFastApp extends StatelessWidget {
 
         ChangeNotifierProvider<AdminViewModel>(
           create: (context) => AdminViewModel(
-            userService: context.read<UserService>(), // ✅ AGREGAR PARÁMETROS
-            businessService: context.read<BusinessService>(), // ✅ AGREGAR PARÁMETROS
+            userService: context.read<UserService>(),
+            businessRegistrationService: context.read<BusinessRegistrationService>(),
           ),
         ),
       ],

@@ -1,7 +1,8 @@
+// lib/presentation/screens/admin/admin_businesses_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
-import '../../../domain/entities/business_entity.dart'; // ✅ IMPORTAR LA ENTIDAD
+import '../../../domain/entities/business_entity.dart';
 
 class AdminBusinessesScreen extends StatefulWidget {
   const AdminBusinessesScreen({super.key});
@@ -90,7 +91,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
         ),
         body: TabBarView(
           children: [
-            // ✅ CAMBIADO: Usar BusinessEntity directamente
+            // ✅ CORREGIDO: Usar BusinessEntity directamente
             _buildBusinessesList(adminViewModel.pendingBusinesses, adminViewModel, 'pending'),
             _buildBusinessesList(adminViewModel.approvedBusinesses, adminViewModel, 'approved'),
             _buildBusinessesList(adminViewModel.suspendedBusinesses, adminViewModel, 'suspended'),
@@ -118,7 +119,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CAMBIADO: Ahora recibe List<BusinessEntity>
+  // ✅ CORREGIDO: Ahora recibe List<BusinessEntity>
   Widget _buildBusinessesList(List<BusinessEntity> businesses, AdminViewModel adminViewModel, String tabType) {
     if (adminViewModel.isLoadingBusinesses && businesses.isEmpty) {
       return const Center(
@@ -205,21 +206,21 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity en lugar de Map
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   Widget _buildBusinessCard(BusinessEntity business, AdminViewModel adminViewModel, String tabType) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: business.statusColor, // ✅ USAR PROPIEDAD DE LA ENTIDAD
+          backgroundColor: business.statusColor,
           child: const Icon(
             Icons.business,
             color: Colors.white,
           ),
         ),
         title: Text(
-          business.name, // ✅ USAR PROPIEDAD DIRECTA
+          business.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Column(
@@ -227,7 +228,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              business.email, // ✅ USAR PROPIEDAD DIRECTA
+              business.email,
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
@@ -236,15 +237,15 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: business.statusColor.withOpacity(0.1), // ✅ USAR PROPIEDAD DE LA ENTIDAD
+                    color: business.statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: business.statusColor), // ✅ USAR PROPIEDAD DE LA ENTIDAD
+                    border: Border.all(color: business.statusColor),
                   ),
                   child: Text(
-                    business.statusDisplayText, // ✅ USAR PROPIEDAD DE LA ENTIDAD
+                    business.statusDisplayText,
                     style: TextStyle(
                       fontSize: 12,
-                      color: business.statusColor, // ✅ USAR PROPIEDAD DE LA ENTIDAD
+                      color: business.statusColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -258,7 +259,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                     border: Border.all(color: Colors.blue),
                   ),
                   child: Text(
-                    business.category, // ✅ USAR PROPIEDAD DIRECTA
+                    business.category,
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.blue,
@@ -277,7 +278,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   Widget _buildBusinessActions(BusinessEntity business, AdminViewModel adminViewModel, String tabType) {
     switch (tabType) {
       case 'pending':
@@ -376,7 +377,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _handleBusinessAction(String action, BusinessEntity business, AdminViewModel adminViewModel) {
     switch (action) {
       case 'suspend':
@@ -400,7 +401,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showApproveDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
@@ -432,7 +433,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showRejectDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
@@ -464,7 +465,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showSuspendDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
@@ -495,7 +496,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showDeleteDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     String title = 'Eliminar Negocio';
     String content = '¿Estás seguro de que quieres eliminar permanentemente el negocio "${business.name}"?';
@@ -534,7 +535,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CAMBIADO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showBusinessDetails(BusinessEntity business) {
     showDialog(
       context: context,

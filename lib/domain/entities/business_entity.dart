@@ -1,6 +1,5 @@
 // lib/domain/entities/business_entity.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BusinessEntity {
   final String id;
@@ -38,31 +37,21 @@ class BusinessEntity {
   // Getters para UI
   Color get statusColor {
     switch (status) {
-      case 'approved':
-        return Colors.green;
-      case 'pending':
-        return Colors.orange;
-      case 'rejected':
-        return Colors.red;
-      case 'suspended':
-        return Colors.grey;
-      default:
-        return Colors.grey;
+      case 'approved': return Colors.green;
+      case 'pending': return Colors.orange;
+      case 'rejected': return Colors.red;
+      case 'suspended': return Colors.grey;
+      default: return Colors.grey;
     }
   }
 
   String get statusDisplayText {
     switch (status) {
-      case 'approved':
-        return 'APROBADO';
-      case 'pending':
-        return 'PENDIENTE';
-      case 'rejected':
-        return 'RECHAZADO';
-      case 'suspended':
-        return 'SUSPENDIDO';
-      default:
-        return status.toUpperCase();
+      case 'approved': return 'APROBADO';
+      case 'pending': return 'PENDIENTE';
+      case 'rejected': return 'RECHAZADO';
+      case 'suspended': return 'SUSPENDIDO';
+      default: return status.toUpperCase();
     }
   }
 
@@ -71,44 +60,27 @@ class BusinessEntity {
   bool get isRejected => status == 'rejected';
   bool get isSuspended => status == 'suspended';
 
-  // Factory constructor desde Firestore
-  factory BusinessEntity.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-    return BusinessEntity(
-      id: doc.id,
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      ownerId: data['ownerId'] ?? '',
-      status: data['status'] ?? 'pending',
-      category: data['category'] ?? 'General',
-      address: data['address'] ?? '',
-      phone: data['phone'],
-      description: data['description'],
-      imageUrl: data['imageUrl'],
-      rating: (data['rating'] ?? 0.0).toDouble(),
-      reviewCount: (data['reviewCount'] ?? 0).toInt(),
-      createdAt: data['createdAt']?.toDate(),
-      updatedAt: data['updatedAt']?.toDate(),
-    );
-  }
-
   // Factory constructor desde Map
   factory BusinessEntity.fromMap(Map<String, dynamic> map) {
     return BusinessEntity(
       id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      ownerId: map['ownerId'] ?? '',
+      name: map['businessName'] ?? map['name'] ?? 'Sin nombre',
+      email: map['userEmail'] ?? map['email'] ?? 'Sin email',
+      ownerId: map['userId'] ?? map['ownerId'] ?? '',
       status: map['status'] ?? 'pending',
       category: map['category'] ?? 'General',
-      address: map['address'] ?? '',
+      address: map['address'] ?? 'Sin dirección',
       phone: map['phone'],
       description: map['description'],
       imageUrl: map['imageUrl'],
       rating: (map['rating'] ?? 0.0).toDouble(),
       reviewCount: (map['reviewCount'] ?? 0).toInt(),
-      createdAt: map['createdAt']?.toDate(),
-      updatedAt: map['updatedAt']?.toDate(),
+      createdAt: map['createdAt'] is DateTime
+          ? map['createdAt']
+          : (map['createdAt'] != null ? map['createdAt'].toDate() : DateTime.now()),
+      updatedAt: map['updatedAt'] is DateTime
+          ? map['updatedAt']
+          : (map['updatedAt'] != null ? map['updatedAt'].toDate() : null),
     );
   }
 
