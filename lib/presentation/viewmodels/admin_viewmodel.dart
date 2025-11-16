@@ -460,20 +460,20 @@ class AdminViewModel extends ChangeNotifier {
   bool get hasSuspendedBusinesses => suspendedBusinesses.isNotEmpty;
 
   // ========== MÉTODOS DE ACTUALIZACIÓN EN TIEMPO REAL ==========
-  void refreshData() {
+  Future<void> refreshData() async {
     _usersLoaded = false;
     _businessesLoaded = false;
-    loadDashboardData();
+    await loadDashboardData();
   }
 
-  void refreshUsers() {
+  Future<void> refreshUsers() async {
     _usersLoaded = false;
-    loadUsers();
+    await loadUsers();
   }
 
-  void refreshBusinesses() {
+  Future<void> refreshBusinesses() async {
     _businessesLoaded = false;
-    loadBusinesses();
+    await loadBusinesses();
   }
 
   // ========== MÉTODOS DE LIMPIEZA ==========
