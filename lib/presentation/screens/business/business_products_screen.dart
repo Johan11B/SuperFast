@@ -1,6 +1,7 @@
 // lib/presentation/screens/business/business_products_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import '../../../domain/entities/product_entity.dart';
 import '../../viewmodels/business_viewmodel.dart';
 
@@ -226,23 +227,7 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
       child: ListTile(
-        leading: CircleAvatar(
-          radius: 25,
-          backgroundColor: product.isAvailable ? Colors.green : Colors.grey,
-          child: product.imageUrls.isNotEmpty
-              ? CircleAvatar(
-            backgroundImage: NetworkImage(product.imageUrls.first),
-            radius: 25,
-          )
-              : Text(
-            product.name[0].toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ),
+        leading: _buildProductImage(product),
         title: Text(
           product.name,
           style: TextStyle(
@@ -370,6 +355,29 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
         },
       ),
     );
+  }
+
+  Widget _buildProductImage(ProductEntity product) {
+    if (product.imageUrls.isNotEmpty) {
+      return CircleAvatar(
+        radius: 25,
+        backgroundColor: Colors.transparent,
+        backgroundImage: NetworkImage(product.imageUrls.first),
+      );
+    } else {
+      return CircleAvatar(
+        radius: 25,
+        backgroundColor: product.isAvailable ? Colors.blue : Colors.grey,
+        child: Text(
+          product.name[0].toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      );
+    }
   }
 
   // 🎮 MANEJO DE ACCIONES
@@ -593,11 +601,10 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
     return Colors.green;
   }
 
-  // ➕ DIÁLOGO AGREGAR PRODUCTO - CORREGIDO
+  // ➕ DIÁLOGO AGREGAR PRODUCTO
   void _showAddProductDialog(BuildContext context) {
     final businessViewModel = context.read<BusinessViewModel>();
 
-    // VERIFICAR businessId ANTES de abrir el diálogo
     if (businessViewModel.currentBusiness?.id.isEmpty ?? true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -611,8 +618,8 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
     showDialog(
       context: context,
       builder: (context) => ProductFormDialog(
-        onSubmit: (product) async {
-          final success = await businessViewModel.addProduct(product);
+        onSubmit: (ProductEntity product, {List<String>? deletedImageUrls, List<File>? newImageFiles}) async {
+          final success = await businessViewModel.addProduct(product, imageFiles: newImageFiles);
 
           if (success && context.mounted) {
             Navigator.of(context).pop();
@@ -635,9 +642,8 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
     );
   }
 
-  // ✏️ DIÁLOGO EDITAR PRODUCTO - CORREGIDO
+  // ✏️ DIÁLOGO EDITAR PRODUCTO
   void _showEditProductDialog(BuildContext context, ProductEntity product) {
-    // VERIFICAR que el producto tenga ID válido
     if (product.id.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -652,9 +658,13 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
       context: context,
       builder: (context) => ProductFormDialog(
         product: product,
-        onSubmit: (updatedProduct) async {
+        onSubmit: (ProductEntity updatedProduct, {List<String>? deletedImageUrls, List<File>? newImageFiles}) async {
           final businessViewModel = context.read<BusinessViewModel>();
-          final success = await businessViewModel.updateProduct(updatedProduct);
+          final success = await businessViewModel.updateProduct(
+            updatedProduct,
+            deletedImageUrls: deletedImageUrls,
+            newImageFiles: newImageFiles,
+          );
 
           if (success && context.mounted) {
             Navigator.of(context).pop();
@@ -678,9 +688,13 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
   }
 }
 
-// 📝 FORMULARIO DE PRODUCTO (DIÁLOGO) - COMPLETAMENTE CORREGIDO
+// 📝 FORMULARIO DE PRODUCTO (DIÁLOGO)
 class ProductFormDialog extends StatefulWidget {
-  final Function(ProductEntity) onSubmit;
+  final Function(
+      ProductEntity, {
+      List<String>? deletedImageUrls,
+      List<File>? newImageFiles,
+      }) onSubmit;
   final ProductEntity? product;
 
   const ProductFormDialog({
@@ -702,6 +716,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
   String _selectedCategory = 'General';
   bool _isAvailable = true;
+  List<File> _selectedImages = [];
+  List<String> _existingImageUrls = [];
+  List<String> _deletedImageUrls = [];
 
   final List<String> _categories = [
     'General', 'Restaurante', 'Cafetería', 'Tienda', 'Supermercado',
@@ -712,7 +729,6 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   void initState() {
     super.initState();
 
-    // Si estamos editando, llenar los campos
     if (widget.product != null) {
       _nameController.text = widget.product!.name;
       _descriptionController.text = widget.product!.description;
@@ -720,13 +736,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       _stockController.text = widget.product!.stock.toString();
       _selectedCategory = widget.product!.category;
       _isAvailable = widget.product!.isAvailable;
-
-      print('🔄 ProductFormDialog - Editando producto:');
-      print('   - ID: ${widget.product!.id}');
-      print('   - BusinessId: ${widget.product!.businessId}');
-      print('   - Nombre: ${widget.product!.name}');
-    } else {
-      print('🔄 ProductFormDialog - Creando nuevo producto');
+      _existingImageUrls = widget.product!.imageUrls;
     }
   }
 
@@ -739,10 +749,211 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     super.dispose();
   }
 
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final businessViewModel = context.read<BusinessViewModel>();
+      final File? imageFile = await businessViewModel.pickImageFromGallery();
+
+      if (imageFile != null) {
+        setState(() {
+          _selectedImages.add(imageFile);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al seleccionar imagen: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _takePhotoWithCamera() async {
+    try {
+      final businessViewModel = context.read<BusinessViewModel>();
+      final File? imageFile = await businessViewModel.takePhotoWithCamera();
+
+      if (imageFile != null) {
+        setState(() {
+          _selectedImages.add(imageFile);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al tomar foto: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _removeSelectedImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  void _removeExistingImage(int index) {
+    setState(() {
+      _deletedImageUrls.add(_existingImageUrls[index]);
+      _existingImageUrls.removeAt(index);
+    });
+  }
+
+  Widget _buildImageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Imágenes del Producto',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Botones para agregar imágenes
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _pickImageFromGallery,
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Galería'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _takePhotoWithCamera,
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Cámara'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Mostrar imágenes existentes
+        if (_existingImageUrls.isNotEmpty) ...[
+          const Text(
+            'Imágenes actuales:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _existingImageUrls.asMap().entries.map((entry) {
+              final index = entry.key;
+              final url = entry.value;
+              return Stack(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: NetworkImage(url),
+                        fit: BoxFit.cover,
+                      ),
+                      border: Border.all(color: Colors.grey),
+                    ),
+                  ),
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      onPressed: () => _removeExistingImage(index),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Mostrar nuevas imágenes seleccionadas
+        if (_selectedImages.isNotEmpty) ...[
+          const Text(
+            'Nuevas imágenes:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedImages.asMap().entries.map((entry) {
+              final index = entry.key;
+              final imageFile = entry.value;
+              return Stack(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: FileImage(imageFile),
+                        fit: BoxFit.cover,
+                      ),
+                      border: Border.all(color: Colors.blue),
+                    ),
+                  ),
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      onPressed: () => _removeSelectedImage(index),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+
+        // Mensaje si no hay imágenes
+        if (_existingImageUrls.isEmpty && _selectedImages.isEmpty) ...[
+          const Center(
+            child: Column(
+              children: [
+                Icon(Icons.photo, size: 50, color: Colors.grey),
+                SizedBox(height: 8),
+                Text(
+                  'No hay imágenes',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                Text(
+                  'Agrega imágenes desde la galería o cámara',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final businessViewModel = context.read<BusinessViewModel>();
-
     return AlertDialog(
       title: Text(widget.product == null ? 'Agregar Producto' : 'Editar Producto'),
       content: SingleChildScrollView(
@@ -861,6 +1072,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                   });
                 },
               ),
+              const SizedBox(height: 16),
+
+              // SECCIÓN DE IMÁGENES
+              _buildImageSection(),
             ],
           ),
         ),
@@ -883,7 +1098,6 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     if (_formKey.currentState!.validate()) {
       final businessViewModel = context.read<BusinessViewModel>();
 
-      // OBTENER businessId de forma segura
       final String businessId;
       if (widget.product != null && widget.product!.businessId.isNotEmpty) {
         businessId = widget.product!.businessId;
@@ -899,36 +1113,41 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         return;
       }
 
-      // OBTENER ID de forma segura - SI ES EDICIÓN, usar el ID existente
       final String productId;
       if (widget.product != null && widget.product!.id.isNotEmpty) {
         productId = widget.product!.id;
       } else {
-        productId = ''; // Para nuevos productos, Firestore generará el ID
+        productId = '';
       }
 
-      print('🔄 _submitForm - Creando producto:');
-      print('   - ID: $productId');
-      print('   - BusinessId: $businessId');
-      print('   - Nombre: ${_nameController.text.trim()}');
-
-      // Crear el producto - CORREGIDO: Pasar correctamente ID y businessId
       final product = ProductEntity(
-        id: productId, // ✅ CORREGIDO: Usar el ID existente para edición
-        businessId: businessId, // ✅ CORREGIDO: Usar businessId válido
+        id: productId,
+        businessId: businessId,
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         price: double.parse(_priceController.text),
         category: _selectedCategory,
-        imageUrls: widget.product?.imageUrls ?? [],
+        imageUrls: _existingImageUrls,
         isAvailable: _isAvailable,
         stock: int.parse(_stockController.text),
         createdAt: widget.product?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
-      // Llamar al callback
-      widget.onSubmit(product);
+      if (widget.product == null) {
+        // Agregar producto
+        widget.onSubmit(
+          product,
+          newImageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
+        );
+      } else {
+        // Editar producto
+        widget.onSubmit(
+          product,
+          deletedImageUrls: _deletedImageUrls.isNotEmpty ? _deletedImageUrls : null,
+          newImageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
+        );
+      }
     }
   }
 }

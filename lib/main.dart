@@ -1,23 +1,35 @@
-// lib/main.dart
+// lib/main.dart - CONFIGURACIÓN COMPLETA
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'presentation/screens/auth/auth_wrapper.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/admin_viewmodel.dart';
-import 'presentation/viewmodels/business_viewmodel.dart'; // ✅ NUEVO
+import 'presentation/viewmodels/business_viewmodel.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/datasources/auth_remote_datasource.dart';
 import 'core/services/role_service.dart';
 import 'core/services/user_service.dart';
 import 'core/services/business_registration_service.dart';
 import 'core/services/order_service.dart';
-import 'core/services/product_service.dart'; // ✅ NUEVO
+import 'core/services/product_service.dart';
+import 'core/services/supabase_storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Inicializar Firebase
   await Firebase.initializeApp();
+
+  // 2. Configurar e inicializar Supabase
+  await Supabase.initialize(
+    // 🔹 REEMPLAZA CON TUS CREDENCIALES DE SUPABASE:
+    url: 'https://oebhuvdxizxcowcxmngk.supabase.co', // Tu URL de Supabase
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYmh1dmR4aXp4Y293Y3htbmdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDYzNDgsImV4cCI6MjA3ODk4MjM0OH0.1-tAqkSyRYGWXPiZ96lbCP0urDZZuj7eN8UfEEI5Ieo', // Tu anon key
+  );
+
   runApp(const SuperFastApp());
 }
 
@@ -28,12 +40,19 @@ class SuperFastApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ========== SERVICIOS ==========
+        // ========== SERVICIOS BÁSICOS ==========
         Provider(create: (_) => RoleService()),
         Provider(create: (_) => UserService()),
         Provider(create: (_) => BusinessRegistrationService()),
         Provider(create: (_) => OrderService()),
-        Provider(create: (_) => ProductService()), // ✅ NUEVO
+        Provider(create: (_) => SupabaseStorageService()),
+
+        // ========== SERVICIOS QUE DEPENDEN DE OTROS ==========
+        Provider<ProductService>(
+          create: (context) => ProductService(
+            storageService: context.read<SupabaseStorageService>(),
+          ),
+        ),
 
         // ========== REPOSITORIOS ==========
         Provider<AuthRepository>(
@@ -58,11 +77,11 @@ class SuperFastApp extends StatelessWidget {
           ),
         ),
 
-        // ✅ NUEVO: BusinessViewModel
         ChangeNotifierProvider<BusinessViewModel>(
           create: (context) => BusinessViewModel(
             productService: context.read<ProductService>(),
             businessRegistrationService: context.read<BusinessRegistrationService>(),
+            storageService: context.read<SupabaseStorageService>(),
           ),
         ),
       ],

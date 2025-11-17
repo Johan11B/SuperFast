@@ -1,9 +1,15 @@
-// lib/core/services/product_service.dart
+// lib/core/services/product_service.dart - ACTUALIZADO
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
 import '../../domain/entities/product_entity.dart';
+import 'supabase_storage_service.dart'; // Cambiar por Supabase
 
 class ProductService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseStorageService _storageService; // Cambiar a Supabase
+
+  ProductService({required SupabaseStorageService storageService})
+      : _storageService = storageService;
 
   // 🔹 Obtener todos los productos de una empresa
   Future<List<ProductEntity>> getBusinessProducts(String businessId) async {
@@ -19,11 +25,11 @@ class ProductService {
       final products = querySnapshot.docs.map((doc) {
         final data = doc.data();
         final product = ProductEntity.fromMap({
-          'id': doc.id, // ✅ Usar el ID del documento de Firestore
+          'id': doc.id,
           ...data,
         });
 
-        print('📦 Producto cargado: ${product.name} (ID: ${product.id}, BusinessId: ${product.businessId})');
+        print('📦 Producto cargado: ${product.name} (ID: ${product.id}, Imágenes: ${product.imageUrls.length})');
 
         return product;
       }).toList();
@@ -36,8 +42,8 @@ class ProductService {
     }
   }
 
-  // 🔹 Agregar nuevo producto - CORREGIDO
-  Future<void> addProduct(ProductEntity product) async {
+  // 🔹 Agregar nuevo producto CON IMÁGENES (Supabase)
+  Future<void> addProduct(ProductEntity product, {List<File>? imageFiles}) async {
     try {
       print('🔄 Agregando producto: ${product.name}');
 
@@ -57,14 +63,16 @@ class ProductService {
       // Remover campos que serán manejados por Firestore
       productData.remove('createdAt');
       productData.remove('updatedAt');
-      productData.remove('id'); // Remover ID para que Firestore lo genere
+      productData.remove('id');
 
       print('📝 Datos a agregar:');
       print('   - BusinessId: ${product.businessId}');
       print('   - Nombre: ${product.name}');
       print('   - Precio: ${product.price}');
       print('   - Stock: ${product.stock}');
+      print('   - Imágenes a subir: ${imageFiles?.length ?? 0}');
 
+      // Agregar producto a Firestore
       final docRef = await _firestore.collection('products').add({
         ...productData,
         'description': product.description.isNotEmpty ? product.description : 'Sin descripción',
@@ -72,26 +80,54 @@ class ProductService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print('✅ Producto agregado exitosamente: ${product.name} (ID generado: ${docRef.id})');
+      final String productId = docRef.id;
+      print('✅ Producto agregado con ID: $productId');
+
+      // Subir imágenes a Supabase si hay
+      List<String> imageUrls = [];
+      if (imageFiles != null && imageFiles.isNotEmpty) {
+        print('🔄 Subiendo ${imageFiles.length} imágenes a Supabase...');
+        imageUrls = await _storageService.uploadMultipleImages(
+            imageFiles,
+            product.businessId,
+            productId
+        );
+
+        // Actualizar producto con las URLs de las imágenes
+        if (imageUrls.isNotEmpty) {
+          await docRef.update({
+            'imageUrls': imageUrls,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        print('✅ ${imageUrls.length} imágenes subidas exitosamente a Supabase');
+      }
+
+      print('✅ Producto agregado exitosamente: ${product.name}');
     } catch (e) {
       print('❌ Error agregando producto: $e');
       throw Exception('Error al agregar producto: $e');
     }
   }
 
-  // 🔹 Actualizar producto existente - CORREGIDO
-  Future<void> updateProduct(ProductEntity product) async {
+  // 🔹 Actualizar producto existente CON IMÁGENES (Supabase)
+  Future<void> updateProduct(
+      ProductEntity product, {
+        List<File>? newImageFiles,
+        List<String>? deletedImageUrls,
+      }) async {
     try {
       print('🔄 Actualizando producto: ${product.name} (${product.id})');
 
-      // ✅ VALIDACIÓN MEJORADA del ID
+      // ✅ VALIDACIÓN del ID
       if (product.id.isEmpty) {
-        throw Exception('ID de producto inválido. No se puede actualizar un producto sin ID.');
+        throw Exception('ID de producto inválido');
       }
 
       // ✅ VALIDACIÓN del businessId
       if (product.businessId.isEmpty) {
-        throw Exception('BusinessId inválido. No se puede actualizar un producto sin businessId.');
+        throw Exception('BusinessId inválido');
       }
 
       final productData = product.toMap();
@@ -104,11 +140,32 @@ class ProductService {
       print('   - ID: ${product.id}');
       print('   - BusinessId: ${product.businessId}');
       print('   - Nombre: ${product.name}');
-      print('   - Precio: ${product.price}');
-      print('   - Stock: ${product.stock}');
+      print('   - Nuevas imágenes: ${newImageFiles?.length ?? 0}');
+      print('   - URLs a eliminar: ${deletedImageUrls?.length ?? 0}');
 
+      // Eliminar imágenes de Supabase si hay
+      if (deletedImageUrls != null && deletedImageUrls.isNotEmpty) {
+        print('🔄 Eliminando ${deletedImageUrls.length} imágenes de Supabase...');
+        await _storageService.deleteMultipleImages(deletedImageUrls);
+      }
+
+      List<String> updatedImageUrls = List.from(product.imageUrls);
+
+      // Subir nuevas imágenes a Supabase si hay
+      if (newImageFiles != null && newImageFiles.isNotEmpty) {
+        print('🔄 Subiendo ${newImageFiles.length} nuevas imágenes a Supabase...');
+        final List<String> newImageUrls = await _storageService.uploadMultipleImages(
+            newImageFiles,
+            product.businessId,
+            product.id
+        );
+        updatedImageUrls.addAll(newImageUrls);
+      }
+
+      // Actualizar producto en Firestore
       await _firestore.collection('products').doc(product.id).update({
         ...productData,
+        'imageUrls': updatedImageUrls,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -119,8 +176,8 @@ class ProductService {
     }
   }
 
-  // 🔹 Eliminar producto
-  Future<void> deleteProduct(String productId) async {
+  // 🔹 Eliminar producto CON SUS IMÁGENES (Supabase)
+  Future<void> deleteProduct(String productId, List<String> imageUrls) async {
     try {
       print('🔄 Eliminando producto: $productId');
 
@@ -128,9 +185,16 @@ class ProductService {
         throw Exception('ID de producto inválido');
       }
 
+      // Eliminar imágenes de Supabase
+      if (imageUrls.isNotEmpty) {
+        print('🔄 Eliminando ${imageUrls.length} imágenes del producto de Supabase...');
+        await _storageService.deleteMultipleImages(imageUrls);
+      }
+
+      // Eliminar producto de Firestore
       await _firestore.collection('products').doc(productId).delete();
 
-      print('✅ Producto eliminado exitosamente: $productId');
+      print('✅ Producto e imágenes eliminados exitosamente: $productId');
     } catch (e) {
       print('❌ Error eliminando producto: $e');
       throw Exception('Error al eliminar producto: $e');
