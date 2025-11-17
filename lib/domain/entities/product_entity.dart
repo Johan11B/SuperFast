@@ -1,4 +1,6 @@
 // lib/domain/entities/product_entity.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ProductEntity {
   final String id;
   final String businessId;
@@ -55,7 +57,7 @@ class ProductEntity {
     );
   }
 
-  // Convertir a Map para Firestore
+  // Convertir a Map para Firestore - CORREGIDO
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -67,13 +69,27 @@ class ProductEntity {
       'imageUrls': imageUrls,
       'isAvailable': isAvailable,
       'stock': stock,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'updatedAt': updatedAt?.millisecondsSinceEpoch,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
   }
 
-  // Crear desde Map de Firestore
+  // Crear desde Map de Firestore - CORREGIDO
   factory ProductEntity.fromMap(Map<String, dynamic> map) {
+    // Helper function para convertir dynamic a DateTime
+    DateTime _parseDateTime(dynamic date) {
+      if (date == null) return DateTime.now();
+      if (date is Timestamp) {
+        return date.toDate();
+      } else if (date is int) {
+        return DateTime.fromMillisecondsSinceEpoch(date);
+      } else if (date is String) {
+        return DateTime.parse(date);
+      } else {
+        return DateTime.now();
+      }
+    }
+
     return ProductEntity(
       id: map['id'] ?? '',
       businessId: map['businessId'] ?? '',
@@ -84,12 +100,8 @@ class ProductEntity {
       imageUrls: List<String>.from(map['imageUrls'] ?? []),
       isAvailable: map['isAvailable'] ?? true,
       stock: (map['stock'] ?? 0).toInt(),
-      createdAt: map['createdAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'])
-          : DateTime.now(),
-      updatedAt: map['updatedAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['updatedAt'])
-          : null,
+      createdAt: _parseDateTime(map['createdAt']),
+      updatedAt: map['updatedAt'] != null ? _parseDateTime(map['updatedAt']) : null,
     );
   }
 
@@ -104,10 +116,9 @@ class ProductEntity {
     return 'En stock ($stock)';
   }
 
-  // Para debugging
   @override
   String toString() {
-    return 'ProductEntity(id: $id, name: $name, price: $price, stock: $stock)';
+    return 'ProductEntity(id: $id, businessId: $businessId, name: $name, price: $price, stock: $stock)';
   }
 
   @override

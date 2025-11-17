@@ -18,10 +18,14 @@ class ProductService {
 
       final products = querySnapshot.docs.map((doc) {
         final data = doc.data();
-        return ProductEntity.fromMap({
-          'id': doc.id,
+        final product = ProductEntity.fromMap({
+          'id': doc.id, // ✅ Usar el ID del documento de Firestore
           ...data,
         });
+
+        print('📦 Producto cargado: ${product.name} (ID: ${product.id}, BusinessId: ${product.businessId})');
+
+        return product;
       }).toList();
 
       print('✅ ${products.length} productos cargados para empresa: $businessId');
@@ -32,7 +36,7 @@ class ProductService {
     }
   }
 
-  // 🔹 Agregar nuevo producto
+  // 🔹 Agregar nuevo producto - CORREGIDO
   Future<void> addProduct(ProductEntity product) async {
     try {
       print('🔄 Agregando producto: ${product.name}');
@@ -44,40 +48,71 @@ class ProductService {
       if (product.price <= 0) {
         throw Exception('El precio debe ser mayor a 0');
       }
+      if (product.businessId.isEmpty) {
+        throw Exception('BusinessId es requerido');
+      }
 
       final productData = product.toMap();
 
-      await _firestore.collection('products').add({
+      // Remover campos que serán manejados por Firestore
+      productData.remove('createdAt');
+      productData.remove('updatedAt');
+      productData.remove('id'); // Remover ID para que Firestore lo genere
+
+      print('📝 Datos a agregar:');
+      print('   - BusinessId: ${product.businessId}');
+      print('   - Nombre: ${product.name}');
+      print('   - Precio: ${product.price}');
+      print('   - Stock: ${product.stock}');
+
+      final docRef = await _firestore.collection('products').add({
         ...productData,
         'description': product.description.isNotEmpty ? product.description : 'Sin descripción',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print('✅ Producto agregado exitosamente: ${product.name}');
+      print('✅ Producto agregado exitosamente: ${product.name} (ID generado: ${docRef.id})');
     } catch (e) {
       print('❌ Error agregando producto: $e');
       throw Exception('Error al agregar producto: $e');
     }
   }
 
-  // 🔹 Actualizar producto existente
+  // 🔹 Actualizar producto existente - CORREGIDO
   Future<void> updateProduct(ProductEntity product) async {
     try {
       print('🔄 Actualizando producto: ${product.name} (${product.id})');
 
+      // ✅ VALIDACIÓN MEJORADA del ID
       if (product.id.isEmpty) {
-        throw Exception('ID de producto inválido');
+        throw Exception('ID de producto inválido. No se puede actualizar un producto sin ID.');
+      }
+
+      // ✅ VALIDACIÓN del businessId
+      if (product.businessId.isEmpty) {
+        throw Exception('BusinessId inválido. No se puede actualizar un producto sin businessId.');
       }
 
       final productData = product.toMap();
+
+      // Remover campos que serán manejados por Firestore
+      productData.remove('createdAt');
+      productData.remove('updatedAt');
+
+      print('📝 Datos a actualizar:');
+      print('   - ID: ${product.id}');
+      print('   - BusinessId: ${product.businessId}');
+      print('   - Nombre: ${product.name}');
+      print('   - Precio: ${product.price}');
+      print('   - Stock: ${product.stock}');
 
       await _firestore.collection('products').doc(product.id).update({
         ...productData,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print('✅ Producto actualizado exitosamente: ${product.name}');
+      print('✅ Producto actualizado exitosamente: ${product.name} (${product.id})');
     } catch (e) {
       print('❌ Error actualizando producto: $e');
       throw Exception('Error al actualizar producto: $e');
