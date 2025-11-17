@@ -1,106 +1,134 @@
 // lib/domain/entities/business_entity.dart
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BusinessEntity {
   final String id;
+  final String ownerId;
   final String name;
   final String email;
-  final String ownerId;
-  final String status;
   final String category;
   final String address;
-  final String? phone;
+  final String phone;
   final String? description;
-  final String? imageUrl;
-  final double? rating;
+  final String status; // pending, approved, suspended, rejected
+  final double rating;
   final int reviewCount;
-  final DateTime? createdAt;
+  final DateTime createdAt;
   final DateTime? updatedAt;
+  final DateTime? approvedAt;
+  final DateTime? suspendedAt;
+  final DateTime? rejectedAt;
 
   const BusinessEntity({
     required this.id,
+    required this.ownerId,
     required this.name,
     required this.email,
-    required this.ownerId,
-    required this.status,
     required this.category,
     required this.address,
-    this.phone,
+    required this.phone,
     this.description,
-    this.imageUrl,
-    this.rating,
+    required this.status,
+    this.rating = 0.0,
     this.reviewCount = 0,
-    this.createdAt,
+    required this.createdAt,
     this.updatedAt,
+    this.approvedAt,
+    this.suspendedAt,
+    this.rejectedAt,
   });
 
-  // Getters para UI
+  // ✅ PROPIEDADES COMPUTADAS PARA ESTADO
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved';
+  bool get isSuspended => status == 'suspended';
+  bool get isRejected => status == 'rejected';
+  bool get isActive => isApproved; // Solo las aprobadas están activas
+
+  // ✅ COLORES SEGÚN ESTADO
   Color get statusColor {
     switch (status) {
       case 'approved': return Colors.green;
       case 'pending': return Colors.orange;
-      case 'rejected': return Colors.red;
-      case 'suspended': return Colors.grey;
+      case 'suspended': return Colors.red;
+      case 'rejected': return Colors.grey;
       default: return Colors.grey;
     }
   }
 
+  // ✅ TEXTO LEGIBLE DEL ESTADO
   String get statusDisplayText {
     switch (status) {
-      case 'approved': return 'APROBADO';
-      case 'pending': return 'PENDIENTE';
-      case 'rejected': return 'RECHAZADO';
-      case 'suspended': return 'SUSPENDIDO';
-      default: return status.toUpperCase();
+      case 'approved': return 'Aprobada';
+      case 'pending': return 'Pendiente';
+      case 'suspended': return 'Suspendida';
+      case 'rejected': return 'Rechazada';
+      default: return status;
     }
   }
 
-  bool get isApproved => status == 'approved';
-  bool get isPending => status == 'pending';
-  bool get isRejected => status == 'rejected';
-  bool get isSuspended => status == 'suspended';
-
-  // Factory constructor desde Map
+  // Convertir desde Map
   factory BusinessEntity.fromMap(Map<String, dynamic> map) {
     return BusinessEntity(
       id: map['id'] ?? '',
-      name: map['businessName'] ?? map['name'] ?? 'Sin nombre',
-      email: map['userEmail'] ?? map['email'] ?? 'Sin email',
       ownerId: map['userId'] ?? map['ownerId'] ?? '',
-      status: map['status'] ?? 'pending',
-      category: map['category'] ?? 'General',
-      address: map['address'] ?? 'Sin dirección',
-      phone: map['phone'],
+      name: map['businessName'] ?? '',
+      email: map['userEmail'] ?? '',
+      category: map['category'] ?? '',
+      address: map['address'] ?? '',
+      phone: map['phone'] ?? '',
       description: map['description'],
-      imageUrl: map['imageUrl'],
+      status: map['status'] ?? 'pending',
       rating: (map['rating'] ?? 0.0).toDouble(),
       reviewCount: (map['reviewCount'] ?? 0).toInt(),
-      createdAt: map['createdAt'] is DateTime
-          ? map['createdAt']
-          : (map['createdAt'] != null ? map['createdAt'].toDate() : DateTime.now()),
-      updatedAt: map['updatedAt'] is DateTime
-          ? map['updatedAt']
-          : (map['updatedAt'] != null ? map['updatedAt'].toDate() : null),
+      createdAt: map['createdAt'] != null
+          ? (map['createdAt'] is Timestamp
+          ? (map['createdAt'] as Timestamp).toDate()
+          : DateTime.parse(map['createdAt'].toString()))
+          : DateTime.now(),
+      updatedAt: map['updatedAt'] != null
+          ? (map['updatedAt'] is Timestamp
+          ? (map['updatedAt'] as Timestamp).toDate()
+          : DateTime.parse(map['updatedAt'].toString()))
+          : null,
+      approvedAt: map['approvedAt'] != null
+          ? (map['approvedAt'] is Timestamp
+          ? (map['approvedAt'] as Timestamp).toDate()
+          : DateTime.parse(map['approvedAt'].toString()))
+          : null,
+      suspendedAt: map['suspendedAt'] != null
+          ? (map['suspendedAt'] is Timestamp
+          ? (map['suspendedAt'] as Timestamp).toDate()
+          : DateTime.parse(map['suspendedAt'].toString()))
+          : null,
+      rejectedAt: map['rejectedAt'] != null
+          ? (map['rejectedAt'] is Timestamp
+          ? (map['rejectedAt'] as Timestamp).toDate()
+          : DateTime.parse(map['rejectedAt'].toString()))
+          : null,
     );
   }
 
-  // Convertir a mapa
+  // Convertir a Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'name': name,
-      'email': email,
-      'ownerId': ownerId,
-      'status': status,
+      'userId': ownerId,
+      'businessName': name,
+      'userEmail': email,
       'category': category,
       'address': address,
       'phone': phone,
       'description': description,
-      'imageUrl': imageUrl,
+      'status': status,
       'rating': rating,
       'reviewCount': reviewCount,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'updatedAt': updatedAt?.millisecondsSinceEpoch,
+      'approvedAt': approvedAt?.millisecondsSinceEpoch,
+      'suspendedAt': suspendedAt?.millisecondsSinceEpoch,
+      'rejectedAt': rejectedAt?.millisecondsSinceEpoch,
     };
   }
 

@@ -1,3 +1,4 @@
+// lib/core/services/user_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/user_entity.dart';
 
@@ -19,6 +20,12 @@ class UserService {
           name: data['name'],
           photoUrl: data['photoUrl'],
           role: data['role'] ?? 'user',
+          // ✅ AGREGAR: Campos de empresa si existen
+          businessName: data['businessName'],
+          businessEmail: data['businessEmail'],
+          businessCategory: data['businessCategory'],
+          businessAddress: data['businessAddress'],
+          businessPhone: data['businessPhone'],
         );
       }).toList();
     } catch (e) {
@@ -45,10 +52,25 @@ class UserService {
     }
   }
 
+  // 🔹 Eliminar usuario - ✅ CORREGIDO
   Future<void> deleteUser(String userId) async {
     try {
+      // ✅ PRIMERO: Verificar si el usuario tiene negocios
+      final businessQuery = await _firestore
+          .collection('business_registrations')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      // ✅ SEGUNDO: Eliminar todos los negocios asociados al usuario
+      for (final doc in businessQuery.docs) {
+        await doc.reference.delete();
+        print('✅ Negocio eliminado: ${doc.id}');
+      }
+
+      // ✅ TERCERO: Eliminar el usuario
       await _firestore.collection('users').doc(userId).delete();
-      print('✅ Usuario eliminado: $userId');
+
+      print('✅ Usuario y sus negocios eliminados: $userId');
     } catch (e) {
       print('❌ Error eliminando usuario: $e');
       rethrow;
@@ -66,6 +88,12 @@ class UserService {
           name: data['name'],
           photoUrl: data['photoUrl'],
           role: data['role'] ?? 'user',
+          // ✅ AGREGAR: Campos de empresa si existen
+          businessName: data['businessName'],
+          businessEmail: data['businessEmail'],
+          businessCategory: data['businessCategory'],
+          businessAddress: data['businessAddress'],
+          businessPhone: data['businessPhone'],
         );
       }
       return null;
@@ -81,7 +109,8 @@ class UserService {
       return allUsers.where((user) {
         final emailMatch = user.email.toLowerCase().contains(query.toLowerCase());
         final nameMatch = user.name?.toLowerCase().contains(query.toLowerCase()) ?? false;
-        return emailMatch || nameMatch;
+        final businessNameMatch = user.businessName?.toLowerCase().contains(query.toLowerCase()) ?? false;
+        return emailMatch || nameMatch || businessNameMatch;
       }).toList();
     } catch (e) {
       print('❌ Error buscando usuarios: $e');

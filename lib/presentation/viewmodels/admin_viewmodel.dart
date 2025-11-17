@@ -345,12 +345,17 @@ class AdminViewModel extends ChangeNotifier {
   Map<String, dynamic> getDashboardStats() {
     final userStats = _calculateUserStats();
 
+    // ✅ CORREGIDO: Solo las empresas aprobadas son activas
+    final approvedBusinesses = _businesses.where((b) => b.isApproved).length;
+    final suspendedBusinesses = _businesses.where((b) => b.isSuspended).length;
+    final pendingBusinesses = _businesses.where((b) => b.isPending).length;
+
     return {
-      'pendingBusinesses': _businessCounts['pending'] ?? 0,
-      'approvedBusinesses': _businessCounts['approved'] ?? 0,
-      'suspendedBusinesses': _businessCounts['suspended'] ?? 0,
-      'activeBusinesses': _businessCounts['active'] ?? 0,
-      'totalBusinesses': _businessCounts['total'] ?? 0,
+      'pendingBusinesses': pendingBusinesses,
+      'approvedBusinesses': approvedBusinesses,
+      'suspendedBusinesses': suspendedBusinesses,
+      'activeBusinesses': approvedBusinesses, // ✅ SOLO LAS APROBADAS
+      'totalBusinesses': _businesses.length,
       'totalUsers': userStats['total'],
       'activeUsers': userStats['user'],
       'businessUsers': userStats['business'],

@@ -190,7 +190,7 @@ class BusinessRegistrationService {
     }
   }
 
-  // Método para aprobar un negocio
+  // Método para aprobar un negocio - ✅ CORREGIDO
   Future<void> approveBusinessRegistration(String registrationId) async {
     try {
       final docRef = _firestore.collection('business_registrations').doc(registrationId);
@@ -203,6 +203,7 @@ class BusinessRegistrationService {
       final data = doc.data()!;
       final userId = data['userId'] as String;
       final businessName = data['businessName'] as String;
+      final userEmail = data['userEmail'] as String;
 
       // Actualizar el estado a aprobado
       await docRef.update({
@@ -212,8 +213,13 @@ class BusinessRegistrationService {
         'suspendedAt': FieldValue.delete(), // Limpiar suspendedAt si existe
       });
 
-      // Actualizar el rol del usuario a 'business'
-      await _updateUserRole(userId, 'business');
+      // ✅ CORREGIDO: Actualizar el usuario en la colección 'users' con toda la información
+      await _updateUserToBusiness(
+        userId: userId,
+        userEmail: userEmail,
+        businessName: businessName,
+        businessData: data,
+      );
 
       print('✅ Negocio aprobado: $businessName (ID: $registrationId)');
 
@@ -299,7 +305,7 @@ class BusinessRegistrationService {
     }
   }
 
-  // Método para eliminar negocio permanentemente
+  // Método para eliminar negocio permanentemente - ✅ CORREGIDO
   Future<void> deleteBusiness(String businessId) async {
     try {
       final docRef = _firestore.collection('business_registrations').doc(businessId);
@@ -311,12 +317,15 @@ class BusinessRegistrationService {
         final userId = data['userId'] as String;
         final status = data['status'] as String;
 
-        // Si el negocio estaba aprobado, revertir el rol del usuario a 'user'
+        // ✅ CORREGIDO: Solo eliminar el negocio, NO el usuario
+        await docRef.delete();
+
+        // ✅ CORREGIDO: Si el negocio estaba aprobado, revertir el rol del usuario a 'user'
+        // pero mantener al usuario en el sistema
         if (status == 'approved' || status == 'suspended') {
-          await _updateUserRole(userId, 'user');
+          await _revertUserToNormal(userId);
         }
 
-        await docRef.delete();
         print('✅ Negocio eliminado permanentemente: $businessName (ID: $businessId)');
       } else {
         throw Exception('Negocio no encontrado');
@@ -399,7 +408,7 @@ class BusinessRegistrationService {
         'pending': pendingQuery.docs.length,
         'approved': approvedQuery.docs.length,
         'suspended': suspendedQuery.docs.length,
-        'active': approvedQuery.docs.length + suspendedQuery.docs.length,
+        'active': approvedQuery.docs.length, // ✅ SOLO APROBADAS SON ACTIVAS
         'total': pendingQuery.docs.length + approvedQuery.docs.length + suspendedQuery.docs.length,
       };
     } catch (e) {
@@ -414,12 +423,70 @@ class BusinessRegistrationService {
     }
   }
 
+  // ✅ NUEVO MÉTODO: Actualizar usuario con información completa de empresa
+  Future<void> _updateUserToBusiness({
+    required String userId,
+    required String userEmail,
+    required String businessName,
+    required Map<String, dynamic> businessData,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'role': 'business',
+        'businessName': businessName,
+        'businessEmail': userEmail,
+        'businessCategory': businessData['category'],
+        'businessAddress': businessData['address'],
+        'businessPhone': businessData['phone'],
+        'businessDescription': businessData['description'],
+        'updatedAt': FieldValue.serverTimestamp(),
+        // ✅ MANTENER los datos originales del usuario
+        'name': businessData['ownerName'] ?? businessName, // Usar nombre del dueño si está disponible
+        'email': userEmail,
+      });
+      print('✅ Usuario actualizado a empresa: $userId -> $businessName');
+    } catch (e) {
+      print('❌ Error actualizando usuario a empresa: $e');
+      throw Exception('Error actualizando usuario a empresa: $e');
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Revertir usuario a normal sin eliminar
+  Future<void> _revertUserToNormal(String userId) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'role': 'user',
+        'updatedAt': FieldValue.serverTimestamp(),
+        // ✅ LIMPIAR solo los datos de empresa, mantener usuario
+        'businessName': FieldValue.delete(),
+        'businessEmail': FieldValue.delete(),
+        'businessCategory': FieldValue.delete(),
+        'businessAddress': FieldValue.delete(),
+        'businessPhone': FieldValue.delete(),
+        'businessDescription': FieldValue.delete(),
+      });
+      print('✅ Usuario revertido a normal: $userId');
+    } catch (e) {
+      print('❌ Error revirtiendo usuario: $e');
+      throw Exception('Error revirtiendo usuario: $e');
+    }
+  }
+
   // Método privado para actualizar el rol del usuario
   Future<void> _updateUserRole(String userId, String newRole) async {
     try {
       await _firestore.collection('users').doc(userId).update({
         'role': newRole,
         'updatedAt': FieldValue.serverTimestamp(),
+        // ✅ LIMPIAR datos de empresa si se vuelve a usuario normal
+        if (newRole == 'user') ...{
+          'businessName': FieldValue.delete(),
+          'businessEmail': FieldValue.delete(),
+          'businessCategory': FieldValue.delete(),
+          'businessAddress': FieldValue.delete(),
+          'businessPhone': FieldValue.delete(),
+          'businessDescription': FieldValue.delete(),
+        }
       });
       print('✅ Rol de usuario actualizado: $userId -> $newRole');
     } catch (e) {

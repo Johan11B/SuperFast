@@ -6,12 +6,14 @@ import 'package:provider/provider.dart';
 import 'presentation/screens/auth/auth_wrapper.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/admin_viewmodel.dart';
+import 'presentation/viewmodels/business_viewmodel.dart'; // ✅ NUEVO
 import 'data/repositories/auth_repository.dart';
 import 'data/datasources/auth_remote_datasource.dart';
 import 'core/services/role_service.dart';
 import 'core/services/user_service.dart';
 import 'core/services/business_registration_service.dart';
 import 'core/services/order_service.dart';
+import 'core/services/product_service.dart'; // ✅ NUEVO
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,19 +28,25 @@ class SuperFastApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Servicios
+        // ========== SERVICIOS ==========
         Provider(create: (_) => RoleService()),
         Provider(create: (_) => UserService()),
         Provider(create: (_) => BusinessRegistrationService()),
         Provider(create: (_) => OrderService()),
+        Provider(create: (_) => ProductService()), // ✅ NUEVO
 
-        // ViewModels
+        // ========== REPOSITORIOS ==========
+        Provider<AuthRepository>(
+          create: (context) => AuthRepository(
+            remoteDataSource: AuthRemoteDataSource(),
+            roleService: context.read<RoleService>(),
+          ),
+        ),
+
+        // ========== VIEWMODELS ==========
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
-            authRepository: AuthRepository(
-              remoteDataSource: AuthRemoteDataSource(),
-              roleService: context.read<RoleService>(),
-            ),
+            authRepository: context.read<AuthRepository>(),
             roleService: context.read<RoleService>(),
           ),
         ),
@@ -46,6 +54,14 @@ class SuperFastApp extends StatelessWidget {
         ChangeNotifierProvider<AdminViewModel>(
           create: (context) => AdminViewModel(
             userService: context.read<UserService>(),
+            businessRegistrationService: context.read<BusinessRegistrationService>(),
+          ),
+        ),
+
+        // ✅ NUEVO: BusinessViewModel
+        ChangeNotifierProvider<BusinessViewModel>(
+          create: (context) => BusinessViewModel(
+            productService: context.read<ProductService>(),
             businessRegistrationService: context.read<BusinessRegistrationService>(),
           ),
         ),

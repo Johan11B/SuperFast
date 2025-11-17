@@ -213,7 +213,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
       elevation: 3,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: business.statusColor,
+          backgroundColor: business.statusColor, // ✅ USAR statusColor de BusinessEntity
           child: const Icon(
             Icons.business,
             color: Colors.white,
@@ -242,7 +242,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                     border: Border.all(color: business.statusColor),
                   ),
                   child: Text(
-                    business.statusDisplayText,
+                    business.statusDisplayText, // ✅ USAR statusDisplayText
                     style: TextStyle(
                       fontSize: 12,
                       color: business.statusColor,
@@ -561,6 +561,10 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                 _buildDetailItem('Creado:', _formatDate(business.createdAt!)),
               if (business.updatedAt != null)
                 _buildDetailItem('Actualizado:', _formatDate(business.updatedAt!)),
+              if (business.approvedAt != null)
+                _buildDetailItem('Aprobado:', _formatDate(business.approvedAt!)),
+              if (business.suspendedAt != null)
+                _buildDetailItem('Suspendido:', _formatDate(business.suspendedAt!)),
             ],
           ),
         ),

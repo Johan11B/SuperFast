@@ -273,7 +273,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _reloadUsers, // ✅ CORREGIDO: Ahora _reloadUsers devuelve Future<void>
+      onRefresh: _reloadUsers,
       child: ListView.builder(
         itemCount: filteredUsers.length,
         itemBuilder: (context, index) {
@@ -337,7 +337,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           child: _buildAvatarContent(user),
         ),
         title: Text(
-          user.name?.isNotEmpty == true ? user.name! : 'Usuario Sin Nombre',
+          user.displayName, // ✅ CORREGIDO: Usar displayName
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
@@ -350,7 +350,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              user.email,
+              user.displayEmail, // ✅ CORREGIDO: Usar displayEmail
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 14,
@@ -359,7 +359,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 6),
-            Row(
+            // ✅ CORREGIDO: Reemplazar Row por Wrap para evitar overflow
+            Wrap(
+              spacing: 6, // espacio horizontal entre elementos
+              runSpacing: 4, // espacio vertical entre líneas
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 // Chip de rol
                 Container(
@@ -378,7 +382,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                // ✅ AGREGADO: Indicador de empresa si tiene información
+                if (user.hasBusinessInfo)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: const Text(
+                      '🏢 Empresa',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ),
                 // ID abreviado
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -401,20 +421,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         trailing: PopupMenuButton<String>(
           onSelected: (value) => _handleUserAction(value, user, adminViewModel),
           itemBuilder: (context) => [
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'view_details',
               child: Row(
-                children: const [
+                children: [
                   Icon(Icons.info_outline, size: 20),
                   SizedBox(width: 8),
                   Text('Ver detalles'),
                 ],
               ),
             ),
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'change_role',
               child: Row(
-                children: const [
+                children: [
                   Icon(Icons.swap_horiz, size: 20),
                   SizedBox(width: 8),
                   Text('Cambiar rol'),
@@ -422,10 +442,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ),
             ),
             const PopupMenuDivider(),
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'delete',
               child: Row(
-                children: const [
+                children: [
                   Icon(Icons.delete, size: 20, color: Colors.red),
                   SizedBox(width: 8),
                   Text('Eliminar', style: TextStyle(color: Colors.red)),
@@ -461,8 +481,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   String _getAvatarText(UserEntity user) {
-    if (user.name?.isNotEmpty == true) {
-      return user.name!.substring(0, 1).toUpperCase();
+    if (user.displayName.isNotEmpty) {
+      return user.displayName.substring(0, 1).toUpperCase();
     }
     if (user.email.isNotEmpty) {
       return user.email.substring(0, 1).toUpperCase();
@@ -495,7 +515,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Usuario: ${user.email}'),
+            Text('Usuario: ${user.displayEmail}'),
             const SizedBox(height: 16),
             const Text('Selecciona el nuevo rol:'),
             const SizedBox(height: 8),
@@ -588,10 +608,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('¿Estás seguro de que quieres eliminar a ${user.email}?'),
+            Text('¿Estás seguro de que quieres eliminar a ${user.displayEmail}?'),
             const SizedBox(height: 8),
             Text(
-              'Nombre: ${user.name ?? "No especificado"}',
+              'Nombre: ${user.displayName}',
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -649,14 +669,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      user.name ?? 'Usuario Sin Nombre',
+                      user.displayName,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      user.email,
+                      user.displayEmail,
                       style: const TextStyle(color: Colors.grey),
                     ),
                   ],
@@ -667,8 +687,28 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               // Información detallada
               _buildDetailItem('ID de Usuario:', user.id),
               _buildDetailItem('Rol:', _getRoleDisplayName(user.role)),
+              if (user.name != null && user.name!.isNotEmpty)
+                _buildDetailItem('Nombre Personal:', user.name!),
               if (user.photoUrl != null && user.photoUrl!.isNotEmpty)
                 _buildDetailItem('Foto URL:', user.photoUrl!),
+
+              // ✅ AGREGADO: Información de empresa si existe
+              if (user.hasBusinessInfo) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Información de Empresa:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (user.businessName != null) _buildDetailItem('Nombre Empresa:', user.businessName!),
+                if (user.businessEmail != null) _buildDetailItem('Email Empresa:', user.businessEmail!),
+                if (user.businessCategory != null) _buildDetailItem('Categoría:', user.businessCategory!),
+                if (user.businessAddress != null) _buildDetailItem('Dirección:', user.businessAddress!),
+                if (user.businessPhone != null) _buildDetailItem('Teléfono:', user.businessPhone!),
+              ],
 
               const SizedBox(height: 16),
               const Text(
@@ -700,7 +740,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 120,
             child: Text(
               label,
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -734,6 +774,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           _buildInfoItem('• Puede gestionar su negocio'),
           _buildInfoItem('• Puede recibir y gestionar pedidos'),
           _buildInfoItem('• Aparece en la app para los clientes'),
+          _buildInfoItem('• Tiene panel de gestión de productos'),
         ]);
         break;
       case 'user':
