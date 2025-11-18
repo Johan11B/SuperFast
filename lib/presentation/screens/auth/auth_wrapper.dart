@@ -6,7 +6,7 @@ import '../../viewmodels/auth_viewmodel.dart';
 import 'login_page.dart';
 import '../admin/admin_panel.dart';
 import '../business/business_panel.dart';
-import '../user/user_dashboard.dart';
+import '../user/user_panel.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -78,7 +78,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       case 'business':
         return const BusinessPanel();
       case 'user':
-        return const UserDashboard();
+        return const UserPanel();
       default:
         return const LoginPage();
     }

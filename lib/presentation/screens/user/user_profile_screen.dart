@@ -1,42 +1,24 @@
-// lib/presentation/screens/user/user_dashboard.dart - VERSIÓN CORREGIDA
+// lib/presentation/screens/user/user_profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../business/business_registration_page.dart';
 import '../../viewmodels/auth_viewmodel.dart';
-import '../settings/ajustes_page.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../core/services/business_registration_service.dart';
 
-class UserDashboard extends StatelessWidget {
-  const UserDashboard({super.key});
+class UserProfileScreen extends StatelessWidget {
+  const UserProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final authViewModel = context.watch<AuthViewModel>();
     final user = authViewModel.currentUser;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi Cuenta - SuperFast'),
-        backgroundColor: Colors.green,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AjustesPage(
-                    userRole: 'user',
-                    primaryColor: Colors.green,
-                  ),
-                ),
-              );
-            },
-          )
-        ],
-      ),
-      body: Padding(
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Recargar datos si es necesario
+      },
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,11 +28,15 @@ class UserDashboard extends StatelessWidget {
             const SizedBox(height: 16),
 
             // Estado del negocio
-            _buildBusinessStatus(context, user), // CORREGIDO: agregar context
+            _buildBusinessStatus(context, user),
             const SizedBox(height: 16),
 
-            // Acciones disponibles según el rol
-            _buildUserActions(context, user),
+            // Acciones rápidas
+            _buildQuickActions(context, user),
+            const SizedBox(height: 16),
+
+            // Estadísticas (si las hay)
+            _buildUserStats(),
           ],
         ),
       ),
@@ -70,7 +56,7 @@ class UserDashboard extends StatelessWidget {
               child: user?.photoUrl != null
                   ? CircleAvatar(backgroundImage: NetworkImage(user!.photoUrl!))
                   : Text(
-                _getAvatarText(user), // CORREGIDO: usar método helper
+                _getAvatarText(user),
                 style: const TextStyle(color: Colors.white),
               ),
             ),
@@ -104,25 +90,11 @@ class UserDashboard extends StatelessWidget {
     );
   }
 
-  // MÉTODO NUEVO: Helper para texto del avatar
-  String _getAvatarText(UserEntity? user) {
-    if (user?.name?.isNotEmpty == true) {
-      return user!.name!.substring(0, 1).toUpperCase();
-    }
-    if (user?.email.isNotEmpty == true) {
-      return user!.email.substring(0, 1).toUpperCase();
-    }
-    return 'U';
-  }
-
-  // CORREGIDO: Agregar parámetro context
   Widget _buildBusinessStatus(BuildContext context, UserEntity? user) {
-    // Si ya es empresa, no mostrar nada (porque ya tiene su propio panel)
     if (user?.role == 'business') {
       return const SizedBox.shrink();
     }
 
-    // Si es usuario, verificar si tiene solicitud pendiente
     return FutureBuilder<Map<String, dynamic>?>(
       future: BusinessRegistrationService().getUserRegistrationStatus(user?.id ?? ''),
       builder: (context, snapshot) {
@@ -166,8 +138,7 @@ class UserDashboard extends StatelessWidget {
           }
         }
 
-        // Si no tiene solicitud, mostrar opción para registrar
-        return _buildRegisterPrompt(context); // CORREGIDO: pasar context
+        return _buildRegisterPrompt(context);
       },
     );
   }
@@ -207,7 +178,6 @@ class UserDashboard extends StatelessWidget {
     );
   }
 
-  // CORREGIDO: Agregar parámetro context
   Widget _buildRegisterPrompt(BuildContext context) {
     return Card(
       color: Colors.orange.withAlpha(25),
@@ -249,118 +219,110 @@ class UserDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildUserActions(BuildContext context, UserEntity? user) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Acciones Disponibles',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(
+  Widget _buildQuickActions(BuildContext context, UserEntity? user) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Acciones Rápidas',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _buildActionChip(
+              icon: Icons.history,
+              label: 'Historial',
+              color: Colors.purple,
+              onTap: () => _showComingSoon(context, 'Historial'),
+            ),
+            _buildActionChip(
+              icon: Icons.favorite,
+              label: 'Favoritos',
+              color: Colors.pink,
+              onTap: () => _showComingSoon(context, 'Favoritos'),
+            ),
+            _buildActionChip(
+              icon: Icons.help_center,
+              label: 'Ayuda',
+              color: Colors.blue,
+              onTap: () => _showComingSoon(context, 'Centro de Ayuda'),
+            ),
+            _buildActionChip(
+              icon: Icons.info,
+              label: 'Info Cuenta',
+              color: Colors.teal,
+              onTap: () => _showAccountInfo(context),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18, color: color),
+      label: Text(label),
+      backgroundColor: color.withAlpha(25),
+      onPressed: onTap,
+    );
+  }
+
+  Widget _buildUserStats() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mi Actividad',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // Si es usuario normal, puede registrar empresa
-                if (user?.role == 'user') ...[
-                  _buildActionCard(
-                    icon: Icons.business,
-                    title: 'Registrar Mi Empresa',
-                    subtitle: 'Convierte tu negocio en digital',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BusinessRegistrationPage()),
-                      );
-                    },
-                  ),
-                ],
-
-                // Acciones generales para todos los usuarios
-                _buildActionCard(
-                  icon: Icons.shopping_cart,
-                  title: 'Mis Pedidos',
-                  subtitle: 'Historial y pedidos activos',
-                  color: Colors.purple,
-                  onTap: () {
-                    _showComingSoon(context, 'Mis Pedidos');
-                  },
-                ),
-
-                _buildActionCard(
-                  icon: Icons.favorite,
-                  title: 'Favoritos',
-                  subtitle: 'Negocios y productos favoritos',
-                  color: Colors.pink,
-                  onTap: () {
-                    _showComingSoon(context, 'Favoritos');
-                  },
-                ),
-
-                _buildActionCard(
-                  icon: Icons.history,
-                  title: 'Historial',
-                  subtitle: 'Mi actividad reciente',
-                  color: Colors.teal,
-                  onTap: () {
-                    _showComingSoon(context, 'Historial');
-                  },
-                ),
-
-                _buildActionCard(
-                  icon: Icons.help_center,
-                  title: 'Centro de Ayuda',
-                  subtitle: 'Soporte y preguntas frecuentes',
-                  color: Colors.indigo,
-                  onTap: () {
-                    _showComingSoon(context, 'Centro de Ayuda');
-                  },
-                ),
-
-                // Información de la cuenta
-                _buildActionCard(
-                  icon: Icons.info,
-                  title: 'Información de la Cuenta',
-                  subtitle: 'Detalles de tu perfil y estado',
-                  color: Colors.blue,
-                  onTap: () {
-                    _showAccountInfo(context);
-                  },
-                ),
+                _buildStatItem('Pedidos', '0', Icons.shopping_cart, Colors.green),
+                _buildStatItem('Favoritos', '0', Icons.favorite, Colors.pink),
+                _buildStatItem('Reseñas', '0', Icons.star, Colors.amber),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: color.withAlpha(25),
-            borderRadius: BorderRadius.circular(8),
+            shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: color),
+          child: Icon(icon, color: color, size: 24),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
-      ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ],
     );
   }
 
@@ -381,28 +343,6 @@ class UserDashboard extends StatelessWidget {
               _buildInfoItem('📧 Email:', user?.email ?? 'N/A'),
               _buildInfoItem('🎯 Rol:', _getRoleDisplayName(user?.role)),
               _buildInfoItem('🆔 ID:', user?.id?.substring(0, 8) ?? 'N/A'),
-              const SizedBox(height: 16),
-
-              // Estado de la cuenta
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Estado de la Cuenta:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    if (user?.role == 'user') ..._getUserAccountInfo(),
-                    if (user?.role == 'business') ..._getBusinessAccountInfo(),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -429,28 +369,10 @@ class UserDashboard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Expanded(
-            child: Text(value),
-          ),
+          Expanded(child: Text(value)),
         ],
       ),
     );
-  }
-
-  List<Widget> _getUserAccountInfo() {
-    return [
-      const Text('• Eres un usuario comprador'),
-      const Text('• Puedes realizar pedidos en cualquier negocio'),
-      const Text('• Puedes registrar tu empresa para vender'),
-    ];
-  }
-
-  List<Widget> _getBusinessAccountInfo() {
-    return [
-      const Text('• Eres una empresa vendedora'),
-      const Text('• Puedes gestionar productos y pedidos'),
-      const Text('• Apareces en la app para recibir pedidos'),
-    ];
   }
 
   void _showComingSoon(BuildContext context, String feature) {
@@ -461,6 +383,16 @@ class UserDashboard extends StatelessWidget {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  String _getAvatarText(UserEntity? user) {
+    if (user?.name?.isNotEmpty == true) {
+      return user!.name!.substring(0, 1).toUpperCase();
+    }
+    if (user?.email.isNotEmpty == true) {
+      return user!.email.substring(0, 1).toUpperCase();
+    }
+    return 'U';
   }
 
   Color _getRoleColor(String? role) {

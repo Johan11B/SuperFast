@@ -9,7 +9,7 @@ import '../../core/services/role_service.dart';
 import '../screens/auth/login_page.dart';
 import '../screens/admin/admin_panel.dart';
 import '../screens/business/business_panel.dart';
-import '../screens/user/user_dashboard.dart';
+import '../screens/user/user_panel.dart';
 
 class AuthViewModel with ChangeNotifier {
   final IAuthRepository authRepository;
@@ -58,9 +58,9 @@ class AuthViewModel with ChangeNotifier {
       case 'business':
         return const BusinessPanel();
       case 'user':
-        return const UserDashboard();
+        return const UserPanel();
       default:
-        return const UserDashboard();
+        return const UserPanel();
     }
   }
 
