@@ -64,17 +64,15 @@ class SupabaseStorageService {
   // 🔹 ESTIMAR USO ACTUAL DE STORAGE
   Future<Map<String, dynamic>> _getStorageUsage() async {
     try {
-      final response = await _supabase.storage
-          .from('product_images')
-          .list();
+      // Obtener estadísticas de todos los buckets
+      final productImages = await _supabase.storage.from('product_images').list();
+      final userImages = await _supabase.storage.from('user_images').list();
+      final businessImages = await _supabase.storage.from('business_images').list();
 
-      int totalFiles = response.length;
-      double estimatedSizeMB = 0;
+      int totalFiles = productImages.length + userImages.length + businessImages.length;
 
       // Estimación conservadora: 500 KB por imagen
-      for (var file in response) {
-        estimatedSizeMB += 0.5; // 500 KB = 0.5 MB
-      }
+      double estimatedSizeMB = totalFiles * 0.5;
 
       final usagePercentage = (estimatedSizeMB / maxTotalStorageMB) * 100;
 
@@ -103,10 +101,160 @@ class SupabaseStorageService {
     return remainingMB >= additionalMB;
   }
 
-  // 🔹 Subir imagen a Supabase Storage CON VALIDACIONES
+  // 🔹 Subir imagen de perfil de usuario
+  Future<String?> uploadProfileImage(File imageFile, String userId) async {
+    try {
+      print('🔄 Iniciando subida de imagen de perfil...');
+
+      // 🔹 VALIDACIÓN 1: Tamaño del archivo
+      await _validateFileSize(imageFile);
+      final fileSizeMB = (await imageFile.length()) / (1024 * 1024);
+
+      // 🔹 VALIDACIÓN 2: Espacio disponible
+      final hasSpace = await _hasEnoughSpace(fileSizeMB);
+      if (!hasSpace) {
+        final usage = await _getStorageUsage();
+        final usagePercentage = usage['usagePercentage'] ?? 0;
+
+        throw Exception('Límite de almacenamiento alcanzado (${usagePercentage.toStringAsFixed(1)}% usado). '
+            'Por favor actualiza tu plan de Supabase o elimina algunas imágenes.');
+      }
+
+      // 🔹 VALIDACIÓN 3: UserId válido
+      if (userId.isEmpty) {
+        throw Exception('UserId no válido para subir imagen.');
+      }
+
+      print('📋 Validaciones pasadas:');
+      print('   - Tamaño archivo: ${fileSizeMB.toStringAsFixed(2)} MB');
+      print('   - UserId: $userId');
+
+      // Generar nombre único para la imagen
+      String fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      String storagePath = 'users/$userId/profile/$fileName';
+
+      print('🔄 Subiendo imagen a: $storagePath');
+
+      // Subir el archivo a Supabase
+      await _supabase.storage
+          .from('user_images')
+          .upload(storagePath, imageFile);
+
+      // Obtener URL pública de la imagen
+      final String publicUrl = _supabase.storage
+          .from('user_images')
+          .getPublicUrl(storagePath);
+
+      // Actualizar estadísticas de uso
+      final usage = await _getStorageUsage();
+      print('📊 Estado almacenamiento:');
+      print('   - Archivos: ${usage['totalFiles']}');
+      print('   - Espacio usado: ${usage['estimatedSizeMB']?.toStringAsFixed(2)} MB');
+      print('   - Porcentaje: ${usage['usagePercentage']?.toStringAsFixed(1)}%');
+      print('   - Espacio libre: ${usage['remainingMB']?.toStringAsFixed(2)} MB');
+
+      print('✅ Imagen de perfil subida exitosamente: $publicUrl');
+      return publicUrl;
+    } catch (e) {
+      print('❌ Error subiendo imagen de perfil a Supabase: $e');
+
+      // Manejar errores específicos
+      final errorMessage = e.toString();
+      if (errorMessage.contains('Límite de almacenamiento')) {
+        throw Exception(errorMessage); // Propagar el error original
+      } else if (errorMessage.contains('demasiado grande')) {
+        throw Exception(errorMessage); // Propagar el error original
+      } else if (errorMessage.contains('UserId no válido')) {
+        throw Exception(errorMessage); // Propagar el error original
+      } else if (errorMessage.contains('JWT')) {
+        throw Exception('Error de autenticación. Por favor, cierra sesión y vuelve a iniciar.');
+      } else if (errorMessage.contains('network') || errorMessage.contains('Socket')) {
+        throw Exception('Error de conexión. Verifica tu internet e intenta nuevamente.');
+      } else {
+        throw Exception('Error al subir imagen de perfil: $errorMessage');
+      }
+    }
+  }
+
+  // 🔹 Subir logo de empresa
+  Future<String?> uploadBusinessLogo(File imageFile, String businessId) async {
+    try {
+      print('🔄 Iniciando subida de logo de empresa...');
+
+      // 🔹 VALIDACIÓN 1: Tamaño del archivo
+      await _validateFileSize(imageFile);
+      final fileSizeMB = (await imageFile.length()) / (1024 * 1024);
+
+      // 🔹 VALIDACIÓN 2: Espacio disponible
+      final hasSpace = await _hasEnoughSpace(fileSizeMB);
+      if (!hasSpace) {
+        final usage = await _getStorageUsage();
+        final usagePercentage = usage['usagePercentage'] ?? 0;
+
+        throw Exception('Límite de almacenamiento alcanzado (${usagePercentage.toStringAsFixed(1)}% usado). '
+            'Por favor actualiza tu plan de Supabase o elimina algunas imágenes.');
+      }
+
+      // 🔹 VALIDACIÓN 3: BusinessId válido
+      if (businessId.isEmpty) {
+        throw Exception('BusinessId no válido para subir logo.');
+      }
+
+      print('📋 Validaciones pasadas:');
+      print('   - Tamaño archivo: ${fileSizeMB.toStringAsFixed(2)} MB');
+      print('   - BusinessId: $businessId');
+
+      // Generar nombre único para la imagen
+      String fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      String storagePath = 'businesses/$businessId/logo/$fileName';
+
+      print('🔄 Subiendo logo a: $storagePath');
+
+      // Subir el archivo a Supabase
+      await _supabase.storage
+          .from('business_images')
+          .upload(storagePath, imageFile);
+
+      // Obtener URL pública de la imagen
+      final String publicUrl = _supabase.storage
+          .from('business_images')
+          .getPublicUrl(storagePath);
+
+      // Actualizar estadísticas de uso
+      final usage = await _getStorageUsage();
+      print('📊 Estado almacenamiento:');
+      print('   - Archivos: ${usage['totalFiles']}');
+      print('   - Espacio usado: ${usage['estimatedSizeMB']?.toStringAsFixed(2)} MB');
+      print('   - Porcentaje: ${usage['usagePercentage']?.toStringAsFixed(1)}%');
+      print('   - Espacio libre: ${usage['remainingMB']?.toStringAsFixed(2)} MB');
+
+      print('✅ Logo de empresa subido exitosamente: $publicUrl');
+      return publicUrl;
+    } catch (e) {
+      print('❌ Error subiendo logo de empresa a Supabase: $e');
+
+      // Manejar errores específicos
+      final errorMessage = e.toString();
+      if (errorMessage.contains('Límite de almacenamiento')) {
+        throw Exception(errorMessage); // Propagar el error original
+      } else if (errorMessage.contains('demasiado grande')) {
+        throw Exception(errorMessage); // Propagar el error original
+      } else if (errorMessage.contains('BusinessId no válido')) {
+        throw Exception(errorMessage); // Propagar el error original
+      } else if (errorMessage.contains('JWT')) {
+        throw Exception('Error de autenticación. Por favor, cierra sesión y vuelve a iniciar.');
+      } else if (errorMessage.contains('network') || errorMessage.contains('Socket')) {
+        throw Exception('Error de conexión. Verifica tu internet e intenta nuevamente.');
+      } else {
+        throw Exception('Error al subir logo de empresa: $errorMessage');
+      }
+    }
+  }
+
+  // 🔹 Subir imagen de producto a Supabase Storage CON VALIDACIONES
   Future<String?> uploadProductImage(File imageFile, String businessId, String productId) async {
     try {
-      print('🔄 Iniciando subida de imagen...');
+      print('🔄 Iniciando subida de imagen de producto...');
 
       // 🔹 VALIDACIÓN 1: Tamaño del archivo
       await _validateFileSize(imageFile);
@@ -159,10 +307,10 @@ class SupabaseStorageService {
       print('   - Porcentaje: ${usage['usagePercentage']?.toStringAsFixed(1)}%');
       print('   - Espacio libre: ${usage['remainingMB']?.toStringAsFixed(2)} MB');
 
-      print('✅ Imagen subida exitosamente: $publicUrl');
+      print('✅ Imagen de producto subida exitosamente: $publicUrl');
       return publicUrl;
     } catch (e) {
-      print('❌ Error subiendo imagen a Supabase: $e');
+      print('❌ Error subiendo imagen de producto a Supabase: $e');
 
       // Manejar errores específicos
       final errorMessage = e.toString();
@@ -178,7 +326,7 @@ class SupabaseStorageService {
       } else if (errorMessage.contains('network') || errorMessage.contains('Socket')) {
         throw Exception('Error de conexión. Verifica tu internet e intenta nuevamente.');
       } else {
-        throw Exception('Error al subir imagen: $errorMessage');
+        throw Exception('Error al subir imagen de producto: $errorMessage');
       }
     }
   }
@@ -197,13 +345,26 @@ class SupabaseStorageService {
       final uri = Uri.parse(imageUrl);
       final pathSegments = uri.pathSegments;
 
+      // Determinar el bucket basado en la URL
+      String bucketName = '';
+      if (imageUrl.contains('product_images')) {
+        bucketName = 'product_images';
+      } else if (imageUrl.contains('user_images')) {
+        bucketName = 'user_images';
+      } else if (imageUrl.contains('business_images')) {
+        bucketName = 'business_images';
+      } else {
+        print('⚠️ No se pudo determinar el bucket de la imagen: $imageUrl');
+        return;
+      }
+
       // En Supabase, el path completo está después del bucket name
-      final bucketIndex = pathSegments.indexOf('product_images');
+      final bucketIndex = pathSegments.indexOf(bucketName);
       if (bucketIndex != -1 && bucketIndex + 1 < pathSegments.length) {
         final filePath = pathSegments.sublist(bucketIndex + 1).join('/');
 
         await _supabase.storage
-            .from('product_images')
+            .from(bucketName)
             .remove([filePath]);
 
         print('✅ Imagen eliminada de Supabase: $filePath');
@@ -273,8 +434,12 @@ class SupabaseStorageService {
 
       print('🔄 Eliminando ${imageUrls.length} imágenes...');
 
-      // Extraer todos los paths primero
-      List<String> filePaths = [];
+      // Agrupar por bucket
+      final Map<String, List<String>> bucketPaths = {
+        'product_images': [],
+        'user_images': [],
+        'business_images': [],
+      };
 
       for (var imageUrl in imageUrls) {
         if (imageUrl.isEmpty) continue;
@@ -282,27 +447,34 @@ class SupabaseStorageService {
         final uri = Uri.parse(imageUrl);
         final pathSegments = uri.pathSegments;
 
-        final bucketIndex = pathSegments.indexOf('product_images');
-        if (bucketIndex != -1 && bucketIndex + 1 < pathSegments.length) {
-          final filePath = pathSegments.sublist(bucketIndex + 1).join('/');
-          filePaths.add(filePath);
+        // Determinar bucket y extraer path
+        for (final bucketName in bucketPaths.keys) {
+          if (imageUrl.contains(bucketName)) {
+            final bucketIndex = pathSegments.indexOf(bucketName);
+            if (bucketIndex != -1 && bucketIndex + 1 < pathSegments.length) {
+              final filePath = pathSegments.sublist(bucketIndex + 1).join('/');
+              bucketPaths[bucketName]!.add(filePath);
+            }
+            break;
+          }
         }
       }
 
-      // Eliminar todos los archivos de una vez
-      if (filePaths.isNotEmpty) {
-        await _supabase.storage
-            .from('product_images')
-            .remove(filePaths);
+      // Eliminar archivos por bucket
+      for (final bucketName in bucketPaths.keys) {
+        final paths = bucketPaths[bucketName]!;
+        if (paths.isNotEmpty) {
+          await _supabase.storage
+              .from(bucketName)
+              .remove(paths);
 
-        print('✅ ${filePaths.length} imágenes eliminadas de Supabase');
-
-        // Actualizar estadísticas
-        final usage = await _getStorageUsage();
-        print('📊 Almacenamiento después de eliminar: ${usage['estimatedSizeMB']?.toStringAsFixed(2)} MB usado');
-      } else {
-        print('⚠️ No se pudieron extraer paths válidos de las URLs');
+          print('✅ ${paths.length} imágenes eliminadas del bucket $bucketName');
+        }
       }
+
+      // Actualizar estadísticas
+      final usage = await _getStorageUsage();
+      print('📊 Almacenamiento después de eliminar: ${usage['estimatedSizeMB']?.toStringAsFixed(2)} MB usado');
     } catch (e) {
       print('❌ Error eliminando múltiples imágenes de Supabase: $e');
       throw Exception('Error al eliminar imágenes: $e');
@@ -375,13 +547,25 @@ class SupabaseStorageService {
     try {
       if (imageUrl.isEmpty) return false;
 
+      // Determinar el bucket basado en la URL
+      String bucketName = '';
+      if (imageUrl.contains('product_images')) {
+        bucketName = 'product_images';
+      } else if (imageUrl.contains('user_images')) {
+        bucketName = 'user_images';
+      } else if (imageUrl.contains('business_images')) {
+        bucketName = 'business_images';
+      } else {
+        return false;
+      }
+
       final response = await _supabase.storage
-          .from('product_images')
+          .from(bucketName)
           .list();
 
       for (var file in response) {
         final fileUrl = _supabase.storage
-            .from('product_images')
+            .from(bucketName)
             .getPublicUrl(file.name);
         if (fileUrl == imageUrl) {
           return true;
@@ -391,6 +575,21 @@ class SupabaseStorageService {
     } catch (e) {
       print('❌ Error verificando existencia de imagen: $e');
       return false;
+    }
+  }
+
+  // 🔹 CREAR BUCKETS SI NO EXISTEN (método de inicialización)
+  Future<void> initializeBuckets() async {
+    try {
+      print('🔄 Verificando buckets de almacenamiento...');
+
+      // Los buckets se crean automáticamente al subir la primera imagen
+      // Este método es solo para verificación
+      final buckets = await _supabase.storage.listBuckets();
+      print('✅ Buckets disponibles: ${buckets.map((b) => b.name).toList()}');
+
+    } catch (e) {
+      print('❌ Error verificando buckets: $e');
     }
   }
 }

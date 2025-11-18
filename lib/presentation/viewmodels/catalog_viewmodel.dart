@@ -1,4 +1,4 @@
-// lib/presentation/viewmodels/catalog_viewmodel.dart - VERSIÓN CORREGIDA
+// lib/presentation/viewmodels/catalog_viewmodel.dart - VERSIÓN COMPLETA ACTUALIZADA
 import 'package:flutter/material.dart';
 import '../../domain/entities/business_entity.dart';
 import '../../domain/entities/product_entity.dart';
@@ -36,7 +36,37 @@ class CatalogViewModel extends ChangeNotifier {
   List<ProductEntity> get products => _filteredProducts;
   List<ProductEntity> get allProducts => _allProducts;
 
-  // ========== CATEGORÍAS ÚNICAS ==========
+  // ========== NUEVOS GETTERS PARA EMPRESAS ==========
+  List<String> get businessCategories {
+    final allCategories = _businesses.map((b) => b.category).toSet().toList();
+    allCategories.sort();
+    return ['Todas', ...allCategories];
+  }
+
+  List<BusinessEntity> get filteredBusinesses {
+    List<BusinessEntity> filtered = _businesses;
+
+    // Filtrar por categoría
+    if (_selectedCategory != 'Todas') {
+      filtered = filtered.where((b) => b.category == _selectedCategory).toList();
+    }
+
+    // Filtrar por búsqueda
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((business) {
+        final nameMatch = business.name.toLowerCase().contains(_searchQuery.toLowerCase());
+        final categoryMatch = business.category.toLowerCase().contains(_searchQuery.toLowerCase());
+        final addressMatch = business.address.toLowerCase().contains(_searchQuery.toLowerCase());
+        final descriptionMatch = business.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false;
+
+        return nameMatch || categoryMatch || addressMatch || descriptionMatch;
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  // ========== CATEGORÍAS ÚNICAS DE PRODUCTOS ==========
   List<String> get categories {
     final allCategories = _allProducts.map((p) => p.category).toSet().toList();
     allCategories.sort();
@@ -91,6 +121,9 @@ class CatalogViewModel extends ChangeNotifier {
       print('🎯 TOTAL: ${_allProducts.length} productos únicos después de eliminar duplicados');
       print('🏢 TOTAL: ${_businesses.length} negocios aprobados');
 
+      // DEBUG: Mostrar estadísticas por empresa
+      _debugBusinessStats();
+
     } catch (e) {
       _errorMessage = 'Error cargando catálogo: $e';
       print('❌ Error cargando catálogo: $e');
@@ -127,16 +160,17 @@ class CatalogViewModel extends ChangeNotifier {
   }
 
   void _applyFilters() {
-    List<ProductEntity> filtered = _allProducts;
+    // Aplicar filtros a productos
+    List<ProductEntity> filteredProducts = _allProducts;
 
     // Filtrar por categoría
     if (_selectedCategory != 'Todas') {
-      filtered = filtered.where((p) => p.category == _selectedCategory).toList();
+      filteredProducts = filteredProducts.where((p) => p.category == _selectedCategory).toList();
     }
 
     // Filtrar por búsqueda
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((product) {
+      filteredProducts = filteredProducts.where((product) {
         final nameMatch = product.name.toLowerCase().contains(_searchQuery.toLowerCase());
         final categoryMatch = product.category.toLowerCase().contains(_searchQuery.toLowerCase());
 
@@ -156,7 +190,7 @@ class CatalogViewModel extends ChangeNotifier {
       }).toList();
     }
 
-    _filteredProducts = filtered;
+    _filteredProducts = filteredProducts;
     print('🔍 Filtros aplicados: ${_filteredProducts.length} productos mostrados');
   }
 
@@ -177,10 +211,81 @@ class CatalogViewModel extends ChangeNotifier {
   }
 
   List<ProductEntity> getProductsByBusiness(String businessId) {
-    return _allProducts.where((p) => p.businessId == businessId).toList();
+    return _allProducts.where((p) => p.businessId == businessId && p.canBeSold).toList();
   }
 
+  // ========== ESTADÍSTICAS DE EMPRESAS ==========
+  Map<String, dynamic> getBusinessStats(String businessId) {
+    final businessProducts = getProductsByBusiness(businessId);
+    final totalProducts = businessProducts.length;
+    final availableProducts = businessProducts.where((p) => p.isAvailable).length;
+    final outOfStockProducts = businessProducts.where((p) => p.stock == 0).length;
+    final lowStockProducts = businessProducts.where((p) => p.stock > 0 && p.stock < 5).length;
+
+    double totalInventoryValue = 0;
+    for (var product in businessProducts) {
+      totalInventoryValue += product.price * product.stock;
+    }
+
+    return {
+      'totalProducts': totalProducts,
+      'availableProducts': availableProducts,
+      'outOfStockProducts': outOfStockProducts,
+      'lowStockProducts': lowStockProducts,
+      'totalInventoryValue': totalInventoryValue,
+    };
+  }
+
+  // ========== BÚSQUEDA ESPECÍFICA ==========
+  List<BusinessEntity> searchBusinesses(String query) {
+    if (query.isEmpty) return _businesses;
+
+    return _businesses.where((business) {
+      final nameMatch = business.name.toLowerCase().contains(query.toLowerCase());
+      final categoryMatch = business.category.toLowerCase().contains(query.toLowerCase());
+      final addressMatch = business.address.toLowerCase().contains(query.toLowerCase());
+      final descriptionMatch = business.description?.toLowerCase().contains(query.toLowerCase()) ?? false;
+
+      return nameMatch || categoryMatch || addressMatch || descriptionMatch;
+    }).toList();
+  }
+
+  List<ProductEntity> searchProducts(String query) {
+    if (query.isEmpty) return _allProducts;
+
+    return _allProducts.where((product) {
+      final nameMatch = product.name.toLowerCase().contains(query.toLowerCase());
+      final categoryMatch = product.category.toLowerCase().contains(query.toLowerCase());
+      final descriptionMatch = product.description.toLowerCase().contains(query.toLowerCase());
+
+      return nameMatch || categoryMatch || descriptionMatch;
+    }).toList();
+  }
+
+  // ========== FILTRADO POR CATEGORÍA ESPECÍFICA ==========
+  List<BusinessEntity> getBusinessesByCategory(String category) {
+    if (category == 'Todas') return _businesses;
+    return _businesses.where((business) => business.category == category).toList();
+  }
+
+  List<ProductEntity> getProductsByCategory(String category) {
+    if (category == 'Todas') return _allProducts;
+    return _allProducts.where((product) => product.category == category).toList();
+  }
+
+  // ========== MÉTODOS DE LIMPIEZA ==========
   void clearError() {
+    _errorMessage = '';
+    notifyListeners();
+  }
+
+  void clearAllData() {
+    _businesses.clear();
+    _allProducts.clear();
+    _filteredProducts.clear();
+    _searchQuery = '';
+    _selectedCategory = 'Todas';
+    _hasLoaded = false;
     _errorMessage = '';
     notifyListeners();
   }
@@ -190,20 +295,101 @@ class CatalogViewModel extends ChangeNotifier {
     await loadCatalog(forceRefresh: true);
   }
 
-  // ========== VERIFICAR DATOS ==========
+  // ========== VERIFICACIÓN DE DATOS ==========
+  void _debugBusinessStats() {
+    print('=== ESTADÍSTICAS DE EMPRESAS ===');
+    for (final business in _businesses) {
+      final stats = getBusinessStats(business.id);
+      print('🏢 ${business.name}');
+      print('   📦 Productos totales: ${stats['totalProducts']}');
+      print('   ✅ Disponibles: ${stats['availableProducts']}');
+      print('   ❌ Sin stock: ${stats['outOfStockProducts']}');
+      print('   ⚠️ Stock bajo: ${stats['lowStockProducts']}');
+      print('   💰 Valor inventario: \$${stats['totalInventoryValue'].toStringAsFixed(2)}');
+    }
+    print('================================');
+  }
+
   void debugData() {
     print('=== DEBUG CATALOG DATA ===');
     print('Negocios: ${_businesses.length}');
     print('Productos totales: ${_allProducts.length}');
     print('Productos filtrados: ${_filteredProducts.length}');
+    print('Búsqueda actual: "$_searchQuery"');
+    print('Categoría seleccionada: "$_selectedCategory"');
 
     for (final business in _businesses) {
       final businessProducts = _allProducts.where((p) => p.businessId == business.id).toList();
-      print('🏢 ${business.name}: ${businessProducts.length} productos');
+      print('🏢 ${business.name} (${business.category}): ${businessProducts.length} productos');
       for (final product in businessProducts) {
-        print('   📦 ${product.name} (ID: ${product.id})');
+        print('   📦 ${product.name} - \$${product.price} (Stock: ${product.stock})');
       }
     }
     print('==========================');
+  }
+
+  // ========== VALIDACIONES ==========
+  bool hasBusinessProducts(String businessId) {
+    return _allProducts.any((p) => p.businessId == businessId && p.canBeSold);
+  }
+
+  int getBusinessProductCount(String businessId) {
+    return _allProducts.where((p) => p.businessId == businessId && p.canBeSold).length;
+  }
+
+  bool isBusinessEmpty(String businessId) {
+    return !hasBusinessProducts(businessId);
+  }
+
+  // ========== ESTADO DE CARGA ESPECÍFICO ==========
+  Future<void> loadBusinessProducts(String businessId) async {
+    if (_isLoadingProducts) return;
+
+    _isLoadingProducts = true;
+    notifyListeners();
+
+    try {
+      // Recargar productos específicos del negocio
+      final products = await _catalogService.getBusinessProducts(businessId);
+
+      // Actualizar la lista de productos
+      _allProducts.removeWhere((p) => p.businessId == businessId);
+      _allProducts.addAll(products);
+
+      // Reaplicar filtros
+      _applyFilters();
+
+      print('✅ Productos del negocio $businessId actualizados: ${products.length} productos');
+    } catch (e) {
+      print('❌ Error cargando productos del negocio $businessId: $e');
+    } finally {
+      _isLoadingProducts = false;
+      notifyListeners();
+    }
+  }
+
+  // ========== ACTUALIZACIÓN SELECTIVA ==========
+  void updateBusiness(BusinessEntity updatedBusiness) {
+    final index = _businesses.indexWhere((b) => b.id == updatedBusiness.id);
+    if (index != -1) {
+      _businesses[index] = updatedBusiness;
+      notifyListeners();
+    }
+  }
+
+  void updateProduct(ProductEntity updatedProduct) {
+    final index = _allProducts.indexWhere((p) => p.id == updatedProduct.id);
+    if (index != -1) {
+      _allProducts[index] = updatedProduct;
+      _applyFilters();
+      notifyListeners();
+    }
+  }
+
+  // ========== DISPOSE ==========
+  @override
+  void dispose() {
+    // Limpiar recursos si es necesario
+    super.dispose();
   }
 }

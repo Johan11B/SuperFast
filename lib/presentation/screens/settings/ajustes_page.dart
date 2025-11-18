@@ -1,9 +1,13 @@
-// lib/presentation/screens/settings/ajustes_page.dart
+// lib/presentation/screens/settings/ajustes_page.dart - VERSIÓN CORREGIDA
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
-import '../auth/auth_wrapper.dart'; // ✅ IMPORT CORREGIDO
+import '../auth/auth_wrapper.dart';
 import '../../../domain/entities/user_entity.dart';
+
+// ✅ AGREGAR IMPORTACIONES DE LAS PANTALLAS DE EDICIÓN
+import '../user/user_edit_profile_screen.dart';
+import '../business/business_edit_profile_screen.dart';
 
 class AjustesPage extends StatelessWidget {
   final Color primaryColor;
@@ -33,7 +37,7 @@ class AjustesPage extends StatelessWidget {
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 35,
+            fontSize: 24,
           ),
         ),
         centerTitle: false,
@@ -61,16 +65,26 @@ class AjustesPage extends StatelessWidget {
           children: [
             // Información del usuario
             if (authViewModel.currentUser != null) ...[
-              _buildUserInfo(authViewModel.currentUser!),
+              _buildUserInfo(context, authViewModel.currentUser!),
               const SizedBox(height: 30),
             ],
 
-            // Secciones según el rol
-            ..._buildRoleSpecificSections(),
+            // AJUSTES PRINCIPALES (según rol)
+            ..._buildMainSettings(context),
+
+            const SizedBox(height: 20),
+
+            // CONFIGURACIÓN DE LA APP
+            _buildAppSettings(context),
+
+            const SizedBox(height: 20),
+
+            // SOPORTE
+            _buildSupportSection(context),
 
             const SizedBox(height: 30),
 
-            // Botón Cerrar Sesión (siempre visible)
+            // Botón Cerrar Sesión
             _buildLogoutButton(context),
           ],
         ),
@@ -78,256 +92,241 @@ class AjustesPage extends StatelessWidget {
     );
   }
 
-  // Métodos de personalización según el rol
+  // 🎨 CONFIGURACIÓN VISUAL POR ROL
   Color _getAppBarColor() {
     switch (userRole) {
-      case 'admin':
-        return const Color(0xFF008C9E); // Azul
-      case 'business':
-        return Colors.orange; // Naranja
-      case 'user':
-        return Colors.green; // Verde
-      default:
-        return const Color(0xFF008C9E);
+      case 'admin': return const Color(0xFF008C9E);
+      case 'business': return Colors.orange;
+      case 'user': return Colors.green;
+      default: return const Color(0xFF008C9E);
     }
   }
 
   String _getTitle() {
     switch (userRole) {
-      case 'admin':
-        return "Ajustes Administrador";
-      case 'business':
-        return "Ajustes Empresa";
-      case 'user':
-        return "Ajustes Usuario";
-      default:
-        return "Ajustes";
+      case 'admin': return "Ajustes Admin";
+      case 'business': return "Ajustes Empresa";
+      case 'user': return "Ajustes Usuario";
+      default: return "Ajustes";
     }
   }
 
-  List<Widget> _buildRoleSpecificSections() {
+  // ⚙️ AJUSTES PRINCIPALES SEGÚN ROL
+  List<Widget> _buildMainSettings(BuildContext context) {
     switch (userRole) {
       case 'admin':
-        return _buildAdminSections();
+        return _buildAdminMainSettings(context);
       case 'business':
-        return _buildBusinessSections();
+        return _buildBusinessMainSettings(context);
       case 'user':
-        return _buildUserSections();
+        return _buildUserMainSettings(context);
       default:
-        return _buildUserSections();
+        return _buildUserMainSettings(context);
     }
   }
 
-  // SECCIONES PARA ADMIN
-  List<Widget> _buildAdminSections() {
+  // 👑 AJUSTES PRINCIPALES PARA ADMIN
+  List<Widget> _buildAdminMainSettings(BuildContext context) {
     return [
-      // Gestión de Sistema
-      _buildSectionTitle('Gestión del Sistema'),
+      _buildSectionTitle('Administración del Sistema'),
       _buildSettingsItem(
+        context: context,
         icon: Icons.people,
         title: 'Gestión de Usuarios',
-        subtitle: 'Administrar roles y permisos',
-        onTap: () {
-          debugPrint('Navegar a gestión de usuarios');
-        },
+        subtitle: 'Administrar usuarios y roles',
+        onTap: () => _showComingSoon(context, 'Gestión de Usuarios'),
       ),
       _buildSettingsItem(
+        context: context,
+        icon: Icons.business,
+        title: 'Gestión de Empresas',
+        subtitle: 'Aprobar y administrar empresas',
+        onTap: () => _showComingSoon(context, 'Gestión de Empresas'),
+      ),
+      _buildSettingsItem(
+        context: context,
         icon: Icons.analytics,
-        title: 'Reportes y Estadísticas',
-        subtitle: 'Ver métricas del sistema',
-        onTap: () {
-          debugPrint('Navegar a reportes');
-        },
-      ),
-      _buildSettingsItem(
-        icon: Icons.security,
-        title: 'Configuración de Seguridad',
-        subtitle: 'Ajustes de permisos globales',
-        onTap: () {
-          debugPrint('Navegar a seguridad');
-        },
-      ),
-
-      const SizedBox(height: 30),
-
-      // Configuración General
-      _buildSectionTitle('Configuración General'),
-      _buildSettingsItem(
-        icon: Icons.notifications,
-        title: 'Notificaciones',
-        subtitle: 'Configurar alertas del sistema',
-      ),
-      _buildSettingsItem(
-        icon: Icons.language,
-        title: 'Idioma y Región',
-        subtitle: 'Preferencias regionales',
+        title: 'Estadísticas del Sistema',
+        subtitle: 'Métricas y reportes generales',
+        onTap: () => _showComingSoon(context, 'Estadísticas del Sistema'),
       ),
     ];
   }
 
-  // SECCIONES PARA BUSINESS
-  List<Widget> _buildBusinessSections() {
+  // 🏢 AJUSTES PRINCIPALES PARA BUSINESS - ✅ CORREGIDO
+  List<Widget> _buildBusinessMainSettings(BuildContext context) {
     return [
-      // Gestión de Negocio
       _buildSectionTitle('Gestión del Negocio'),
       _buildSettingsItem(
-        icon: Icons.inventory,
-        title: 'Gestión de Productos',
-        subtitle: 'Administrar catálogo',
+        context: context,
+        icon: Icons.store,
+        title: 'Información de la Empresa',
+        subtitle: 'Editar datos del negocio',
         onTap: () {
-          debugPrint('Navegar a productos');
+          // ✅ CORREGIDO: Navegar a la pantalla real en lugar de "Próximamente"
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BusinessEditProfileScreen()),
+          );
         },
       ),
       _buildSettingsItem(
+        context: context,
+        icon: Icons.inventory,
+        title: 'Mis Productos',
+        subtitle: 'Gestionar catálogo de productos',
+        onTap: () => _showComingSoon(context, 'Gestión de Productos'),
+      ),
+      _buildSettingsItem(
+        context: context,
         icon: Icons.receipt_long,
         title: 'Pedidos y Ventas',
         subtitle: 'Ver historial de pedidos',
-        onTap: () {
-          debugPrint('Navegar a pedidos');
-        },
-      ),
-      _buildSettingsItem(
-        icon: Icons.analytics,
-        title: 'Analíticas del Negocio',
-        subtitle: 'Métricas de ventas y crecimiento',
-        onTap: () {
-          debugPrint('Navegar a analíticas');
-        },
-      ),
-
-      const SizedBox(height: 30),
-
-      // Configuración
-      _buildSectionTitle('Configuración'),
-      _buildSettingsItem(
-        icon: Icons.store,
-        title: 'Información del Negocio',
-        subtitle: 'Datos de la empresa',
-      ),
-      _buildSettingsItem(
-        icon: Icons.payment,
-        title: 'Métodos de Pago',
-        subtitle: 'Configurar formas de pago',
-      ),
-      _buildSettingsItem(
-        icon: Icons.notifications,
-        title: 'Notificaciones',
-        subtitle: 'Alertas de pedidos',
+        onTap: () => _showComingSoon(context, 'Pedidos y Ventas'),
       ),
     ];
   }
 
-  // SECCIONES PARA USER
-  List<Widget> _buildUserSections() {
+  // 👤 AJUSTES PRINCIPALES PARA USER - ✅ CORREGIDO
+  List<Widget> _buildUserMainSettings(BuildContext context) {
     return [
-      // Cuenta y Preferencias
-      _buildSectionTitle('Cuenta y Preferencias'),
+      _buildSectionTitle('Mi Cuenta'),
       _buildSettingsItem(
+        context: context,
         icon: Icons.person,
         title: 'Editar Perfil',
         subtitle: 'Actualizar información personal',
         onTap: () {
-          debugPrint('Navegar a editar perfil');
+          // ✅ CORREGIDO: Navegar a la pantalla real en lugar de "Próximamente"
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const UserEditProfileScreen()),
+          );
         },
       ),
       _buildSettingsItem(
-        icon: Icons.security,
-        title: 'Seguridad',
-        subtitle: 'Contraseña y verificación',
+        context: context,
+        icon: Icons.favorite,
+        title: 'Mis Favoritos',
+        subtitle: 'Productos y empresas favoritas',
+        onTap: () => _showComingSoon(context, 'Mis Favoritos'),
       ),
       _buildSettingsItem(
-        icon: Icons.notifications,
-        title: 'Notificaciones',
-        subtitle: 'Preferencias de alertas',
-      ),
-
-      const SizedBox(height: 30),
-
-      // App y Soporte
-      _buildSectionTitle('App y Soporte'),
-      _buildSettingsItem(
-        icon: Icons.help,
-        title: 'Centro de Ayuda',
-        subtitle: 'Preguntas frecuentes',
-      ),
-      _buildSettingsItem(
-        icon: Icons.privacy_tip,
-        title: 'Privacidad y Términos',
-        subtitle: 'Políticas de la aplicación',
-      ),
-      _buildSettingsItem(
-        icon: Icons.star,
-        title: 'Calificar App',
-        subtitle: 'Deja tu opinión',
+        context: context,
+        icon: Icons.shopping_bag,
+        title: 'Mis Pedidos',
+        subtitle: 'Historial de compras',
+        onTap: () => _showComingSoon(context, 'Mis Pedidos'),
       ),
     ];
   }
 
-  // WIDGETS REUTILIZABLES
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+  // 📱 CONFIGURACIÓN DE LA APP (para todos)
+  Widget _buildAppSettings(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Configuración de la App'),
+        _buildSettingsItem(
+          context: context,
+          icon: Icons.notifications,
+          title: 'Notificaciones',
+          subtitle: 'Configurar alertas y notificaciones',
+          onTap: () => _showComingSoon(context, 'Configuración de Notificaciones'),
+        ),
+        _buildSettingsItem(
+          context: context,
+          icon: Icons.language,
+          title: 'Idioma',
+          subtitle: 'Seleccionar idiama de la aplicación',
+          onTap: () => _showComingSoon(context, 'Selección de Idioma'),
+        ),
+        _buildSettingsItem(
+          context: context,
+          icon: Icons.visibility,
+          title: 'Tema',
+          subtitle: 'Cambiar entre modo claro y oscuro',
+          onTap: () => _showComingSoon(context, 'Configuración de Tema'),
+        ),
+      ],
     );
   }
 
-  Widget _buildSettingsItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    VoidCallback? onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: primaryColor, size: 24),
+  // 🆘 SOPORTE (para todos)
+  Widget _buildSupportSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Soporte y Ayuda'),
+        _buildSettingsItem(
+          context: context,
+          icon: Icons.help,
+          title: 'Centro de Ayuda',
+          subtitle: 'Preguntas frecuentes y soporte',
+          onTap: () => _showComingSoon(context, 'Centro de Ayuda'),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        _buildSettingsItem(
+          context: context,
+          icon: Icons.security,
+          title: 'Privacidad y Seguridad',
+          subtitle: 'Políticas de privacidad y datos',
+          onTap: () => _showComingSoon(context, 'Privacidad y Seguridad'),
         ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 14, color: Colors.grey),
+        _buildSettingsItem(
+          context: context,
+          icon: Icons.info,
+          title: 'Acerca de',
+          subtitle: 'Información de la aplicación',
+          onTap: () => _showComingSoon(context, 'Acerca de'),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: onTap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        tileColor: Colors.grey[50],
-      ),
+      ],
     );
   }
 
-  Widget _buildUserInfo(UserEntity user) {
+  // 👤 INFORMACIÓN DEL USUARIO
+  Widget _buildUserInfo(BuildContext context, UserEntity user) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: primaryColor,
-            backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-            child: user.photoUrl == null
-                ? Text(
-              user.name?.isNotEmpty == true
-                  ? user.name!.substring(0, 1).toUpperCase()
-                  : user.email.substring(0, 1).toUpperCase(),
-              style: const TextStyle(fontSize: 20, color: Colors.white),
-            )
-                : null,
+          // Avatar del usuario
+          GestureDetector(
+            onTap: () => _showImageOptions(context, user),
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: _getRoleColor(),
+                  backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
+                  child: user.photoUrl == null
+                      ? Text(
+                    user.name?.isNotEmpty == true
+                        ? user.name!.substring(0, 1).toUpperCase()
+                        : user.email.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(fontSize: 20, color: Colors.white),
+                  )
+                      : null,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -343,13 +342,12 @@ class AjustesPage extends StatelessWidget {
                   user.email,
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: _getRoleColor().withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _getRoleColor()),
                   ),
                   child: Text(
                     _getRoleDisplayName(),
@@ -368,99 +366,82 @@ class AjustesPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        final scaffoldMessenger = ScaffoldMessenger.of(context);
-        final authViewModel = context.read<AuthViewModel>();
-
-        try {
-          // Mostrar indicador de carga
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  CircularProgressIndicator(color: Colors.white),
-                  SizedBox(width: 10),
-                  Text('Cerrando sesión...'),
-                ],
-              ),
-              duration: Duration(seconds: 5),
-            ),
-          );
-
-          debugPrint('🚪 Iniciando proceso de logout desde ajustes...');
-
-          // Cerrar sesión
-          await authViewModel.logout();
-
-          debugPrint('✅ Logout completado desde ajustes');
-
-          if (context.mounted) {
-            // ✅ CORREGIDO: Navegar al AuthWrapper para reiniciar completamente
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const AuthWrapper()),
-                  (Route<dynamic> route) => false,
-            );
-
-            // Mostrar mensaje de éxito
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(
-                content: Text('Sesión cerrada exitosamente'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } catch (e) {
-          debugPrint('❌ Error en logout desde ajustes: $e');
-
-          if (context.mounted) {
-            scaffoldMessenger.showSnackBar(
-              SnackBar(
-                content: Text('Error al cerrar sesión: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.15),
-              spreadRadius: 1,
-              blurRadius: 3,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.logout, color: Colors.red, size: 28),
-                SizedBox(width: 15),
-                Text(
-                  "Cerrar Sesión",
-                  style: TextStyle(fontSize: 18, color: Colors.black87),
-                ),
-              ],
-            ),
-            const Icon(Icons.chevron_right, color: Colors.grey, size: 28),
-          ],
+  // 🧩 COMPONENTES REUTILIZABLES
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
         ),
       ),
     );
   }
 
-  // Métodos auxiliares para personalización
+  Widget _buildSettingsItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: primaryColor, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+        onTap: onTap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  // 🚪 BOTÓN CERRAR SESIÓN
+  Widget _buildLogoutButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => _showLogoutConfirmation(context),
+        icon: const Icon(Icons.logout, size: 20),
+        label: const Text(
+          'Cerrar Sesión',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  // 🎨 COLORES Y TEXTO POR ROL
   Color _getRoleColor() {
     switch (userRole) {
       case 'admin': return Colors.red;
@@ -477,5 +458,131 @@ class AjustesPage extends StatelessWidget {
       case 'user': return 'USUARIO';
       default: return 'USUARIO';
     }
+  }
+
+  // 📸 OPCIONES PARA CAMBIAR IMAGEN
+  void _showImageOptions(BuildContext context, UserEntity user) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Elegir de la galería'),
+              onTap: () {
+                Navigator.pop(context);
+                _showComingSoon(context, 'Cambiar imagen de perfil');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Tomar foto'),
+              onTap: () {
+                Navigator.pop(context);
+                _showComingSoon(context, 'Tomar foto para perfil');
+              },
+            ),
+            if (user.photoUrl != null) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Eliminar foto', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showComingSoon(context, 'Eliminar imagen de perfil');
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 💬 DIÁLOGO DE CONFIRMACIÓN PARA LOGOUT
+  void _showLogoutConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar Sesión'),
+        content: const Text('¿Estás seguro de que quieres cerrar sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => _performLogout(context),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Cerrar Sesión'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔐 EJECUTAR LOGOUT
+  void _performLogout(BuildContext context) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final authViewModel = context.read<AuthViewModel>();
+
+    try {
+      // Cerrar diálogo
+      Navigator.of(context).pop();
+
+      // Mostrar indicador
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(width: 10),
+              Text('Cerrando sesión...'),
+            ],
+          ),
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      await authViewModel.logout();
+
+      if (context.mounted) {
+        // Navegar al AuthWrapper
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+              (Route<dynamic> route) => false,
+        );
+
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Sesión cerrada exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 🚧 FUNCIÓN PARA OPCIONES NO IMPLEMENTADAS
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature - Próximamente'),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 }

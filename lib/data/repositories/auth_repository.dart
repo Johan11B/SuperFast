@@ -1,3 +1,4 @@
+// lib/data/repositories/auth_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/user_entity.dart';
@@ -200,5 +201,101 @@ class AuthRepository implements IAuthRepository {
         return null;
       }
     });
+  }
+
+  // ✅ MÉTODO IMPLEMENTADO: Obtener usuario por ID
+  @override
+  Future<UserEntity?> getUserById(String userId) async {
+    return await PerformanceManager.measure(
+      'Get User By ID',
+          () async {
+        try {
+          print('🔄 Buscando usuario por ID: $userId');
+
+          // Obtener datos del usuario desde Firestore
+          final userDoc = await _firestore.collection('users').doc(userId).get();
+
+          if (!userDoc.exists) {
+            print('❌ Usuario no encontrado en Firestore: $userId');
+            return null;
+          }
+
+          final userData = userDoc.data() as Map<String, dynamic>?;
+          if (userData == null) {
+            print('❌ Datos de usuario vacíos para: $userId');
+            return null;
+          }
+
+          // Obtener información de empresa si existe
+          final businessData = await _getBusinessData(userId);
+
+          // Crear UserEntity con todos los datos
+          final userEntity = UserModel(
+            id: userId,
+            email: userData['email'] ?? '',
+            name: userData['name'],
+            photoUrl: userData['photoUrl'],
+            role: userData['role'] ?? 'user',
+            businessName: businessData?['name'],
+            businessEmail: businessData?['email'],
+            businessCategory: businessData?['category'],
+            businessAddress: businessData?['address'],
+            businessPhone: businessData?['phone'],
+          );
+
+          print('✅ Usuario encontrado: ${userEntity.email} - Rol: ${userEntity.role}');
+          return userEntity;
+        } catch (e) {
+          print('❌ Error obteniendo usuario por ID: $e');
+          return null;
+        }
+      },
+    );
+  }
+
+  // ✅ MÉTODO AUXILIAR: Obtener datos de empresa si el usuario tiene una
+  Future<Map<String, dynamic>?> _getBusinessData(String userId) async {
+    try {
+      final businessDoc = await _firestore
+          .collection('businesses')
+          .where('owner_id', isEqualTo: userId)
+          .limit(1)
+          .get();
+
+      if (businessDoc.docs.isNotEmpty) {
+        final businessData = businessDoc.docs.first.data();
+        print('🏢 Datos de empresa encontrados para usuario: $userId');
+        return businessData;
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ Error obteniendo datos de empresa: $e');
+      return null;
+    }
+  }
+
+  // ✅ MÉTODO ADICIONAL: Actualizar datos del usuario en Firestore
+  Future<void> updateUserData({
+    required String userId,
+    String? name,
+    String? email,
+    String? photoUrl,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (name != null) updates['name'] = name;
+      if (email != null) updates['email'] = email;
+      if (photoUrl != null) updates['photoUrl'] = photoUrl;
+
+      await _firestore.collection('users').doc(userId).update(updates);
+      print('✅ Datos de usuario actualizados: $userId');
+    } catch (e) {
+      print('❌ Error actualizando datos de usuario: $e');
+      rethrow;
+    }
   }
 }

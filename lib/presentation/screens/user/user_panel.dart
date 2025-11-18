@@ -101,10 +101,10 @@ class _UserPanelState extends State<UserPanel> {
               const Expanded(
                 child: Center(
                   child: Text(
-                    "SuperFast\nUsuario",
+                    "SuperFast Usuario",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 25,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       height: 1.0,

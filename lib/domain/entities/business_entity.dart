@@ -19,6 +19,7 @@ class BusinessEntity {
   final DateTime? approvedAt;
   final DateTime? suspendedAt;
   final DateTime? rejectedAt;
+  final String? logoUrl; // ✅ NUEVO CAMPO AGREGADO
 
   const BusinessEntity({
     required this.id,
@@ -37,6 +38,7 @@ class BusinessEntity {
     this.approvedAt,
     this.suspendedAt,
     this.rejectedAt,
+    this.logoUrl, // ✅ AGREGADO AL CONSTRUCTOR
   });
 
   // ✅ PROPIEDADES COMPUTADAS PARA ESTADO
@@ -73,8 +75,8 @@ class BusinessEntity {
     return BusinessEntity(
       id: map['id'] ?? '',
       ownerId: map['userId'] ?? map['ownerId'] ?? '',
-      name: map['businessName'] ?? '',
-      email: map['userEmail'] ?? '',
+      name: map['businessName'] ?? map['name'] ?? '', // ✅ SOPORTA AMBOS NOMBRES
+      email: map['userEmail'] ?? map['email'] ?? '', // ✅ SOPORTA AMBOS NOMBRES
       category: map['category'] ?? '',
       address: map['address'] ?? '',
       phone: map['phone'] ?? '',
@@ -82,6 +84,7 @@ class BusinessEntity {
       status: map['status'] ?? 'pending',
       rating: (map['rating'] ?? 0.0).toDouble(),
       reviewCount: (map['reviewCount'] ?? 0).toInt(),
+      logoUrl: map['logoUrl'] ?? map['logo_url'], // ✅ SOPORTA AMBOS NOMBRES
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
@@ -124,6 +127,7 @@ class BusinessEntity {
       'status': status,
       'rating': rating,
       'reviewCount': reviewCount,
+      'logoUrl': logoUrl, // ✅ AGREGADO
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt?.millisecondsSinceEpoch,
       'approvedAt': approvedAt?.millisecondsSinceEpoch,
@@ -132,9 +136,39 @@ class BusinessEntity {
     };
   }
 
+  // ✅ MÉTODO COPYWITH PARA ACTUALIZACIONES
+  BusinessEntity copyWith({
+    String? name,
+    String? description,
+    String? category,
+    String? address,
+    String? phone,
+    String? logoUrl,
+  }) {
+    return BusinessEntity(
+      id: id,
+      ownerId: ownerId,
+      name: name ?? this.name,
+      email: email,
+      category: category ?? this.category,
+      address: address ?? this.address,
+      phone: phone ?? this.phone,
+      description: description ?? this.description,
+      status: status,
+      rating: rating,
+      reviewCount: reviewCount,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      approvedAt: approvedAt,
+      suspendedAt: suspendedAt,
+      rejectedAt: rejectedAt,
+      logoUrl: logoUrl ?? this.logoUrl,
+    );
+  }
+
   @override
   String toString() {
-    return 'BusinessEntity(id: $id, name: $name, status: $status)';
+    return 'BusinessEntity(id: $id, name: $name, status: $status, logoUrl: $logoUrl)';
   }
 
   @override

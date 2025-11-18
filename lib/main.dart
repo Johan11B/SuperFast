@@ -1,4 +1,4 @@
-// lib/main.dart - VERSIÓN CORREGIDA
+// lib/main.dart - VERSIÓN COMPLETA ACTUALIZADA
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +18,8 @@ import 'core/services/order_service.dart';
 import 'core/services/product_service.dart';
 import 'core/services/supabase_storage_service.dart';
 import 'core/services/catalog_service.dart';
+import 'core/services/user_profile_service.dart';
+import 'core/services/business_profile_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +50,8 @@ class SuperFastApp extends StatelessWidget {
         Provider(create: (_) => OrderService()),
         Provider(create: (_) => SupabaseStorageService()),
         Provider(create: (_) => CatalogService()),
+        Provider(create: (_) => UserProfileService()),
+        Provider(create: (_) => BusinessProfileService()),
 
         // ========== SERVICIOS QUE DEPENDEN DE OTROS ==========
         Provider<ProductService>(
@@ -87,7 +91,7 @@ class SuperFastApp extends StatelessWidget {
           ),
         ),
 
-        // 🔹 FALTA ESTE VIEWMODEL - AGREGARLO
+        // 🔹 CATALOG VIEWMODEL
         ChangeNotifierProvider<CatalogViewModel>(
           create: (context) {
             print('🔄 Creando CatalogViewModel...');
@@ -105,6 +109,31 @@ class SuperFastApp extends StatelessWidget {
           primaryColor: const Color(0xFF008C9E),
           scaffoldBackgroundColor: const Color(0xFFEFEFEF),
           fontFamily: 'Roboto',
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF008C9E),
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            backgroundColor: Color(0xFF008C9E),
+            foregroundColor: Colors.white,
+          ),
+          textTheme: const TextTheme(
+            headlineMedium: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            titleMedium: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+          ),
         ),
         home: const AuthWrapper(),
       ),

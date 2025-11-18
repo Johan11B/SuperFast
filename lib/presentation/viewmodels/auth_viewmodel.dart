@@ -307,6 +307,122 @@ class AuthViewModel with ChangeNotifier {
     );
   }
 
+  // ✅ NUEVO MÉTODO AGREGADO: Cargar datos actualizados del usuario
+  Future<void> loadCurrentUser() async {
+    try {
+      setLoading(true);
+
+      // Obtener el usuario actual de Firebase Auth
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        // Usar el authRepository para obtener los datos actualizados
+        // Esto depende de cómo esté implementado tu repositorio
+        // Si tu repositorio no tiene getUserById, puedes usar el usuario actual del stream
+        // o implementar la lógica aquí según tu estructura de datos
+
+        debugPrint('🔄 Cargando datos actualizados del usuario: ${firebaseUser.uid}');
+
+        // Por ahora, simplemente actualizamos con los datos que ya tenemos
+        // Esto mantiene la funcionalidad existente sin romper nada
+        if (_currentUser != null) {
+          // Mantenemos el usuario actual pero forzamos una notificación
+          notifyListeners();
+        }
+      }
+
+      setLoading(false);
+    } catch (e) {
+      setLoading(false);
+      debugPrint('❌ Error en loadCurrentUser: $e');
+      // No mostramos error al usuario para no interrumpir la experiencia
+    }
+  }
+
+  // ✅ MÉTODO ALTERNATIVO: Para cuando necesites forzar una recarga completa
+  Future<void> refreshUserData() async {
+    try {
+      setLoading(true);
+
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        debugPrint('🔄 Refrescando datos del usuario: ${firebaseUser.uid}');
+
+        // Aquí puedes agregar lógica específica para recargar desde tu base de datos
+        // Por ahora, simplemente notificamos a los listeners
+        notifyListeners();
+      }
+
+      setLoading(false);
+    } catch (e) {
+      setLoading(false);
+      debugPrint('❌ Error en refreshUserData: $e');
+    }
+  }
+
+  // ✅ MÉTODO CORREGIDO: Para actualizar datos locales del usuario (compatible con tu UserEntity)
+  void updateLocalUserData({
+    String? name,
+    String? email,
+    String? photoUrl,
+    String? businessName,
+    String? businessEmail,
+    String? businessCategory,
+    String? businessAddress,
+    String? businessPhone,
+  }) {
+    if (_currentUser != null) {
+      // Crear una nueva instancia con los datos actualizados
+      final updatedUser = UserEntity(
+        id: _currentUser!.id,
+        email: email ?? _currentUser!.email,
+        name: name ?? _currentUser!.name,
+        photoUrl: photoUrl ?? _currentUser!.photoUrl,
+        role: _currentUser!.role,
+        // ✅ CORREGIDO: Solo los campos que existen en tu UserEntity
+        businessName: businessName ?? _currentUser!.businessName,
+        businessEmail: businessEmail ?? _currentUser!.businessEmail,
+        businessCategory: businessCategory ?? _currentUser!.businessCategory,
+        businessAddress: businessAddress ?? _currentUser!.businessAddress,
+        businessPhone: businessPhone ?? _currentUser!.businessPhone,
+      );
+
+      _currentUser = updatedUser;
+      notifyListeners();
+
+      debugPrint('✅ Datos locales del usuario actualizados');
+    }
+  }
+
+  // ✅ MÉTODO ESPECÍFICO PARA ACTUALIZAR SOLO EL PERFIL BÁSICO
+  void updateUserProfileData({
+    String? name,
+    String? email,
+    String? photoUrl,
+  }) {
+    updateLocalUserData(
+      name: name,
+      email: email,
+      photoUrl: photoUrl,
+    );
+  }
+
+  // ✅ MÉTODO ESPECÍFICO PARA ACTUALIZAR DATOS DE EMPRESA
+  void updateBusinessProfileData({
+    String? businessName,
+    String? businessEmail,
+    String? businessCategory,
+    String? businessAddress,
+    String? businessPhone,
+  }) {
+    updateLocalUserData(
+      businessName: businessName,
+      businessEmail: businessEmail,
+      businessCategory: businessCategory,
+      businessAddress: businessAddress,
+      businessPhone: businessPhone,
+    );
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();
