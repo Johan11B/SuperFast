@@ -1,4 +1,4 @@
-// lib/presentation/viewmodels/catalog_viewmodel.dart
+// lib/presentation/viewmodels/catalog_viewmodel.dart - VERSIÓN CORREGIDA
 import 'package:flutter/material.dart';
 import '../../domain/entities/business_entity.dart';
 import '../../domain/entities/product_entity.dart';
@@ -22,6 +22,9 @@ class CatalogViewModel extends ChangeNotifier {
   List<ProductEntity> _allProducts = [];
   List<ProductEntity> _filteredProducts = [];
 
+  // ========== CONTROL DE CARGA ==========
+  bool _hasLoaded = false;
+
   // ========== GETTERS ==========
   bool get isLoading => _isLoading;
   bool get isLoadingProducts => _isLoadingProducts;
@@ -41,13 +44,27 @@ class CatalogViewModel extends ChangeNotifier {
   }
 
   // ========== MÉTODOS PRINCIPALES ==========
-  Future<void> loadCatalog() async {
+  Future<void> loadCatalog({bool forceRefresh = false}) async {
+    // Evitar cargas múltiples simultáneas
+    if (_isLoading && !forceRefresh) return;
+
+    // Si ya se cargó y no es un refresh forzado, no hacer nada
+    if (_hasLoaded && !forceRefresh) return;
+
     _isLoading = true;
     _errorMessage = '';
     notifyListeners();
 
     try {
-      print('🔄 Cargando catálogo...');
+      print('🔄 Cargando catálogo... (forceRefresh: $forceRefresh)');
+
+      // LIMPIAR DATOS ANTES DE CARGAR
+      if (forceRefresh) {
+        _businesses.clear();
+        _allProducts.clear();
+        _filteredProducts.clear();
+        _hasLoaded = false;
+      }
 
       // Cargar negocios aprobados
       _businesses = await _catalogService.getApprovedBusinesses();
@@ -57,11 +74,22 @@ class CatalogViewModel extends ChangeNotifier {
       _allProducts = [];
       for (final business in _businesses) {
         final products = await _catalogService.getBusinessProducts(business.id);
-        _allProducts.addAll(products);
+
+        // FILTRAR PRODUCTOS DUPLICADOS POR ID
+        final uniqueProducts = _removeDuplicateProducts(products);
+        _allProducts.addAll(uniqueProducts);
+
+        print('📦 Negocio "${business.name}": ${uniqueProducts.length} productos únicos');
       }
 
+      // ELIMINAR DUPLICADOS FINALES
+      _allProducts = _removeDuplicateProducts(_allProducts);
       _filteredProducts = _allProducts;
-      print('✅ ${_allProducts.length} productos cargados');
+
+      _hasLoaded = true;
+
+      print('🎯 TOTAL: ${_allProducts.length} productos únicos después de eliminar duplicados');
+      print('🏢 TOTAL: ${_businesses.length} negocios aprobados');
 
     } catch (e) {
       _errorMessage = 'Error cargando catálogo: $e';
@@ -70,6 +98,19 @@ class CatalogViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  // ========== ELIMINAR PRODUCTOS DUPLICADOS ==========
+  List<ProductEntity> _removeDuplicateProducts(List<ProductEntity> products) {
+    final uniqueProducts = <String, ProductEntity>{};
+
+    for (final product in products) {
+      if (product.id.isNotEmpty && !uniqueProducts.containsKey(product.id)) {
+        uniqueProducts[product.id] = product;
+      }
+    }
+
+    return uniqueProducts.values.toList();
   }
 
   // ========== BÚSQUEDA Y FILTROS ==========
@@ -116,6 +157,7 @@ class CatalogViewModel extends ChangeNotifier {
     }
 
     _filteredProducts = filtered;
+    print('🔍 Filtros aplicados: ${_filteredProducts.length} productos mostrados');
   }
 
   void clearFilters() {
@@ -141,5 +183,27 @@ class CatalogViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = '';
     notifyListeners();
+  }
+
+  // ========== FORZAR RECARGA ==========
+  Future<void> forceRefresh() async {
+    await loadCatalog(forceRefresh: true);
+  }
+
+  // ========== VERIFICAR DATOS ==========
+  void debugData() {
+    print('=== DEBUG CATALOG DATA ===');
+    print('Negocios: ${_businesses.length}');
+    print('Productos totales: ${_allProducts.length}');
+    print('Productos filtrados: ${_filteredProducts.length}');
+
+    for (final business in _businesses) {
+      final businessProducts = _allProducts.where((p) => p.businessId == business.id).toList();
+      print('🏢 ${business.name}: ${businessProducts.length} productos');
+      for (final product in businessProducts) {
+        print('   📦 ${product.name} (ID: ${product.id})');
+      }
+    }
+    print('==========================');
   }
 }
