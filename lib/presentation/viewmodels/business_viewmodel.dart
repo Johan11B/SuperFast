@@ -91,6 +91,7 @@ class BusinessViewModel with ChangeNotifier {
       if (businessData != null) {
         _currentBusiness = _mapToBusinessEntity(businessData);
         print('✅ Empresa cargada: ${_currentBusiness!.name} (ID: ${_currentBusiness!.id})');
+        print('🖼️ Logo URL: ${_currentBusiness!.logoUrl}');
 
         // Cargar productos de la empresa
         await loadBusinessProducts(_currentBusiness!.id);
@@ -459,6 +460,7 @@ class BusinessViewModel with ChangeNotifier {
     loadBusinessProducts(businessId);
   }
 
+  // ✅ ACTUALIZADO: Incluir logoUrl en el mapeo
   BusinessEntity _mapToBusinessEntity(Map<String, dynamic> data) {
     DateTime _parseDateTime(dynamic date) {
       if (date == null) return DateTime.now();
@@ -487,7 +489,17 @@ class BusinessViewModel with ChangeNotifier {
       reviewCount: (data['reviewCount'] ?? 0).toInt(),
       createdAt: _parseDateTime(data['createdAt']),
       updatedAt: data['updatedAt'] != null ? _parseDateTime(data['updatedAt']) : null,
+      logoUrl: data['logoUrl'], // ✅ AGREGADO
     );
+  }
+
+  // ✅ NUEVO MÉTODO: Actualizar business localmente
+  void updateLocalBusiness({String? logoUrl}) {
+    if (_currentBusiness != null) {
+      _currentBusiness = _currentBusiness!.copyWith(logoUrl: logoUrl);
+      notifyListeners();
+      print('✅ Business local actualizado con nuevo logo: $logoUrl');
+    }
   }
 
   @override

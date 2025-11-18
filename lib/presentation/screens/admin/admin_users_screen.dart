@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
+import '../../viewmodels/business_viewmodel.dart'; // ✅ AGREGAR
 import '../../../domain/entities/user_entity.dart';
 
 class AdminUsersScreen extends StatefulWidget {
@@ -49,7 +50,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
-  // ✅ CORREGIDO: Ahora devuelve Future<void>
   Future<void> _reloadUsers() async {
     print('🔄 Recarga manual de usuarios...');
     setState(() {
@@ -326,18 +326,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  // ✅ CORREGIDO: Ahora usa BusinessViewModel para obtener el logo de la empresa
   Widget _buildUserCard(UserEntity user, AdminViewModel adminViewModel) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
       child: ListTile(
-        leading: CircleAvatar(
+        // ✅ CORREGIDO: Para empresas, mostrar logo de la empresa
+        leading: user.role == 'business'
+            ? _buildBusinessLogo(user)
+            : CircleAvatar(
           radius: 25,
           backgroundColor: _getRoleColor(user.role),
           child: _buildAvatarContent(user),
         ),
         title: Text(
-          user.displayName, // ✅ CORREGIDO: Usar displayName
+          user.displayName,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
@@ -350,7 +354,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              user.displayEmail, // ✅ CORREGIDO: Usar displayEmail
+              user.displayEmail,
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 14,
@@ -359,10 +363,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 6),
-            // ✅ CORREGIDO: Reemplazar Row por Wrap para evitar overflow
             Wrap(
-              spacing: 6, // espacio horizontal entre elementos
-              runSpacing: 4, // espacio vertical entre líneas
+              spacing: 6,
+              runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 // Chip de rol
@@ -458,6 +461,47 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           _showUserDetails(user);
         },
       ),
+    );
+  }
+
+  // ✅ NUEVO: Widget para mostrar logo de empresa para usuarios business
+  Widget _buildBusinessLogo(UserEntity user) {
+    return Consumer<BusinessViewModel>(
+      builder: (context, businessViewModel, child) {
+        // Buscar la empresa de este usuario
+        final business = businessViewModel.currentBusiness;
+        final userBusiness = business != null && business.ownerId == user.id
+            ? business
+            : null;
+
+        return Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            image: userBusiness?.logoUrl != null && userBusiness!.logoUrl!.isNotEmpty
+                ? DecorationImage(
+              image: NetworkImage(userBusiness.logoUrl!),
+              fit: BoxFit.cover,
+            )
+                : null,
+            border: Border.all(
+              color: Colors.orange.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: userBusiness?.logoUrl == null || userBusiness!.logoUrl!.isEmpty
+              ? Center(
+            child: Icon(
+              Icons.business,
+              color: Colors.orange,
+              size: 24,
+            ),
+          )
+              : null,
+        );
+      },
     );
   }
 
@@ -662,11 +706,44 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               Center(
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: _getRoleColor(user.role),
-                      child: _buildAvatarContent(user),
-                    ),
+                    // ✅ CORREGIDO: Mostrar logo de empresa si es business
+                    if (user.role == 'business')
+                      Consumer<BusinessViewModel>(
+                        builder: (context, businessViewModel, child) {
+                          final business = businessViewModel.currentBusiness;
+                          final userBusiness = business != null && business.ownerId == user.id
+                              ? business
+                              : null;
+
+                          return Container(
+                            width: 80,
+                            height: 80,
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              image: userBusiness?.logoUrl != null && userBusiness!.logoUrl!.isNotEmpty
+                                  ? DecorationImage(
+                                image: NetworkImage(userBusiness.logoUrl!),
+                                fit: BoxFit.cover,
+                              )
+                                  : null,
+                              border: Border.all(color: Colors.grey.shade300),
+                              color: userBusiness?.logoUrl == null || userBusiness!.logoUrl!.isEmpty
+                                  ? Colors.orange.withOpacity(0.1)
+                                  : null,
+                            ),
+                            child: userBusiness?.logoUrl == null || userBusiness!.logoUrl!.isEmpty
+                                ? const Icon(Icons.business, size: 40, color: Colors.orange)
+                                : null,
+                          );
+                        },
+                      )
+                    else
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: _getRoleColor(user.role),
+                        child: _buildAvatarContent(user),
+                      ),
                     const SizedBox(height: 16),
                     Text(
                       user.displayName,

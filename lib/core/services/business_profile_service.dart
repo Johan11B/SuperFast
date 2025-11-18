@@ -1,4 +1,4 @@
-// lib/core/services/business_profile_service.dart - VERSIÓN CORREGIDA
+// lib/core/services/business_profile_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BusinessProfileService {
@@ -33,6 +33,9 @@ class BusinessProfileService {
       await _firestore.collection('business_registrations').doc(businessId).update(updates);
 
       print('✅ Perfil de empresa actualizado exitosamente en business_registrations');
+      if (logoUrl != null) {
+        print('🖼️ Logo URL actualizada: $logoUrl');
+      }
     } catch (e) {
       print('❌ Error actualizando perfil de empresa en business_registrations: $e');
       rethrow;
@@ -45,7 +48,7 @@ class BusinessProfileService {
       print('🔄 Buscando empresa para usuario: $userId');
 
       final query = await _firestore
-          .collection('business_registrations') // ✅ COLECCIÓN CORRECTA
+          .collection('business_registrations')
           .where('userId', isEqualTo: userId)
           .limit(1)
           .get();
@@ -71,17 +74,85 @@ class BusinessProfileService {
   // 🔹 OBTENER empresa por ID desde business_registrations
   Future<Map<String, dynamic>?> getBusinessById(String businessId) async {
     try {
-      final doc = await _firestore.collection('business_registrations').doc(businessId).get(); // ✅ COLECCIÓN CORRECTA
+      final doc = await _firestore.collection('business_registrations').doc(businessId).get();
 
       if (doc.exists) {
-        return {
+        final data = {
           'id': doc.id,
           ...doc.data()!,
         };
+        print('✅ Empresa obtenida por ID: ${data['businessName']}');
+        return data;
       }
+      print('⚠️ No se encontró empresa con ID: $businessId');
       return null;
     } catch (e) {
       print('❌ Error obteniendo empresa por ID: $e');
+      return null;
+    }
+  }
+
+  // 🔹 CREAR NUEVA EMPRESA si no existe
+  Future<void> createBusinessIfNotExists({
+    required String businessId,
+    required String userId,
+    required String userEmail,
+    required String businessName,
+    required String category,
+    required String address,
+    required String phone,
+    String? description,
+    String? logoUrl,
+  }) async {
+    try {
+      final docRef = _firestore.collection('business_registrations').doc(businessId);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        print('🆕 Creando nueva empresa: $businessName');
+
+        await docRef.set({
+          'id': businessId,
+          'userId': userId,
+          'userEmail': userEmail,
+          'businessName': businessName,
+          'category': category,
+          'address': address,
+          'phone': phone,
+          'description': description,
+          'logoUrl': logoUrl,
+          'status': 'approved',
+          'rating': 0.0,
+          'reviewCount': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'approvedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ Nueva empresa creada: $businessName');
+      } else {
+        print('✅ Empresa ya existe: $businessName');
+      }
+    } catch (e) {
+      print('❌ Error creando empresa: $e');
+      rethrow;
+    }
+  }
+
+  // 🔹 OBTENER URL del logo de la empresa
+  Future<String?> getBusinessLogoUrl(String businessId) async {
+    try {
+      final doc = await _firestore.collection('business_registrations').doc(businessId).get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        final logoUrl = data['logoUrl'] as String?;
+        print('🖼️ Logo URL obtenida: $logoUrl');
+        return logoUrl;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error obteniendo logo URL: $e');
       return null;
     }
   }

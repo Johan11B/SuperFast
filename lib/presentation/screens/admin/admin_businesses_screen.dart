@@ -1,4 +1,4 @@
-// lib/presentation/screens/admin/admin_businesses_screen.dart
+// lib/presentation/screens/admin/admin_businesses_screen.dart - VERSIÓN CORREGIDA
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
@@ -91,7 +91,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
         ),
         body: TabBarView(
           children: [
-            // ✅ CORREGIDO: Usar BusinessEntity directamente
             _buildBusinessesList(adminViewModel.pendingBusinesses, adminViewModel, 'pending'),
             _buildBusinessesList(adminViewModel.approvedBusinesses, adminViewModel, 'approved'),
             _buildBusinessesList(adminViewModel.suspendedBusinesses, adminViewModel, 'suspended'),
@@ -119,7 +118,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora recibe List<BusinessEntity>
   Widget _buildBusinessesList(List<BusinessEntity> businesses, AdminViewModel adminViewModel, String tabType) {
     if (adminViewModel.isLoadingBusinesses && businesses.isEmpty) {
       return const Center(
@@ -206,19 +204,14 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora muestra el logo real de la empresa
   Widget _buildBusinessCard(BusinessEntity business, AdminViewModel adminViewModel, String tabType) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: business.statusColor, // ✅ USAR statusColor de BusinessEntity
-          child: const Icon(
-            Icons.business,
-            color: Colors.white,
-          ),
-        ),
+        // ✅ CORREGIDO: Mostrar logo real de la empresa
+        leading: _buildBusinessLogo(business),
         title: Text(
           business.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -242,7 +235,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                     border: Border.all(color: business.statusColor),
                   ),
                   child: Text(
-                    business.statusDisplayText, // ✅ USAR statusDisplayText
+                    business.statusDisplayText,
                     style: TextStyle(
                       fontSize: 12,
                       color: business.statusColor,
@@ -278,7 +271,37 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
+  // ✅ NUEVO: Widget para mostrar el logo de la empresa
+  Widget _buildBusinessLogo(BusinessEntity business) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: business.statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        image: business.logoUrl != null && business.logoUrl!.isNotEmpty
+            ? DecorationImage(
+          image: NetworkImage(business.logoUrl!),
+          fit: BoxFit.cover,
+        )
+            : null,
+        border: Border.all(
+          color: business.statusColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: business.logoUrl == null || business.logoUrl!.isEmpty
+          ? Center(
+        child: Icon(
+          Icons.business,
+          color: business.statusColor,
+          size: 24,
+        ),
+      )
+          : null,
+    );
+  }
+
   Widget _buildBusinessActions(BusinessEntity business, AdminViewModel adminViewModel, String tabType) {
     switch (tabType) {
       case 'pending':
@@ -377,7 +400,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _handleBusinessAction(String action, BusinessEntity business, AdminViewModel adminViewModel) {
     switch (action) {
       case 'suspend':
@@ -401,7 +423,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     }
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showApproveDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
@@ -433,7 +454,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showRejectDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
@@ -465,7 +485,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showSuspendDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     showDialog(
       context: context,
@@ -496,7 +515,6 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
   void _showDeleteDialog(BusinessEntity business, AdminViewModel adminViewModel) {
     String title = 'Eliminar Negocio';
     String content = '¿Estás seguro de que quieres eliminar permanentemente el negocio "${business.name}"?';
@@ -535,7 +553,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora recibe BusinessEntity
+  // ✅ CORREGIDO: Ahora también muestra el logo en los detalles
   void _showBusinessDetails(BusinessEntity business) {
     showDialog(
       context: context,
@@ -546,12 +564,37 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ✅ AGREGADO: Logo de la empresa en los detalles
+              if (business.logoUrl != null && business.logoUrl!.isNotEmpty)
+                Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      image: DecorationImage(
+                        image: NetworkImage(business.logoUrl!),
+                        fit: BoxFit.cover,
+                      ),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                  ),
+                ),
+
               _buildDetailItem('Nombre:', business.name),
               _buildDetailItem('Email:', business.email),
               _buildDetailItem('Categoría:', business.category),
               _buildDetailItem('Dirección:', business.address),
               _buildDetailItem('Teléfono:', business.phone ?? 'No disponible'),
               _buildDetailItem('Estado:', business.statusDisplayText),
+
+              // ✅ AGREGADO: Información del logo
+              if (business.logoUrl != null && business.logoUrl!.isNotEmpty)
+                _buildDetailItem('Logo:', 'Configurado ✅'),
+              if (business.logoUrl == null || business.logoUrl!.isEmpty)
+                _buildDetailItem('Logo:', 'No configurado'),
+
               if (business.description != null && business.description!.isNotEmpty)
                 _buildDetailItem('Descripción:', business.description!),
               if (business.rating != null)

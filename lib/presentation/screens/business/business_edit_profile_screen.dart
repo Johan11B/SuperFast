@@ -57,7 +57,36 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
       _addressController.text = business.address;
       _phoneController.text = business.phone;
       _selectedCategory = business.category;
-      // Nota: Necesitarías agregar logoUrl a BusinessEntity
+
+      // ✅ AGREGADO: Cargar logoUrl si existe
+      if (business.logoUrl != null && business.logoUrl!.isNotEmpty) {
+        setState(() {
+          _currentLogoUrl = business.logoUrl;
+        });
+        print('🖼️ Logo cargado: $_currentLogoUrl');
+      }
+    }
+  }
+
+  // ✅ AGREGADO: Método para cargar el logo actual
+  Future<void> _loadCurrentLogo() async {
+    try {
+      final businessViewModel = context.read<BusinessViewModel>();
+      final business = businessViewModel.currentBusiness;
+
+      if (business != null) {
+        // Obtener los datos actualizados del negocio
+        final businessData = await _businessProfileService.getBusinessById(business.id);
+
+        if (businessData != null && businessData['logoUrl'] != null) {
+          setState(() {
+            _currentLogoUrl = businessData['logoUrl'];
+          });
+          print('🔄 Logo actual recargado: $_currentLogoUrl');
+        }
+      }
+    } catch (e) {
+      print('❌ Error cargando logo actual: $e');
     }
   }
 
@@ -68,6 +97,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         setState(() {
           _selectedLogo = imageFile;
         });
+        print('🖼️ Nueva imagen seleccionada desde galería');
       }
     } catch (e) {
       _showErrorSnackbar('Error seleccionando logo: $e');
@@ -81,12 +111,14 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         setState(() {
           _selectedLogo = imageFile;
         });
+        print('🖼️ Nueva imagen tomada con cámara');
       }
     } catch (e) {
       _showErrorSnackbar('Error tomando foto: $e');
     }
   }
 
+  // ✅ MODIFICADO: _uploadLogo para que devuelva y actualice la URL
   Future<String?> _uploadLogo() async {
     if (_selectedLogo == null) return null;
 
@@ -102,6 +134,15 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         business.id,
       );
 
+      // ✅ ACTUALIZAR INMEDIATAMENTE la URL local
+      setState(() {
+        _currentLogoUrl = logoUrl;
+      });
+
+      // ✅ ACTUALIZAR en el ViewModel inmediatamente
+      businessViewModel.updateLocalBusiness(logoUrl: logoUrl);
+
+      print('✅ Logo subido exitosamente: $logoUrl');
       return logoUrl;
     } catch (e) {
       _showErrorSnackbar('Error subiendo logo: $e');
@@ -109,6 +150,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
     }
   }
 
+  // ✅ MODIFICADO: _saveProfile para forzar recarga
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -136,15 +178,23 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         category: _selectedCategory,
         address: _addressController.text.trim(),
         phone: _phoneController.text.trim(),
-        logoUrl: newLogoUrl,
+        logoUrl: newLogoUrl ?? _currentLogoUrl, // ✅ Usar nueva URL o mantener la actual
       );
 
-      // Recargar datos de la empresa
+      // ✅ FORZAR RECARGA COMPLETA de datos de la empresa
       final authViewModel = context.read<AuthViewModel>();
       final user = authViewModel.currentUser;
       if (user != null) {
         await businessViewModel.loadCurrentBusiness(user.id);
+
+        // ✅ ACTUALIZAR también en AuthViewModel para que se refleje en toda la app
+        authViewModel.updateBusinessProfileData(
+          businessName: _nameController.text.trim(),
+        );
       }
+
+      // ✅ RECARGAR LOGO ACTUAL
+      await _loadCurrentLogo();
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -184,7 +234,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
                 _takeLogoPhoto();
               },
             ),
-            if (_currentLogoUrl != null) ...[
+            if (_currentLogoUrl != null && _currentLogoUrl!.isNotEmpty) ...[
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
@@ -201,6 +251,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
     );
   }
 
+  // ✅ MODIFICADO: _deleteCurrentLogo para limpiar correctamente
   Future<void> _deleteCurrentLogo() async {
     try {
       final businessViewModel = context.read<BusinessViewModel>();
@@ -210,7 +261,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
 
       await _businessProfileService.updateBusinessProfile(
         businessId: business.id,
-        logoUrl: '',
+        logoUrl: '', // ✅ Establecer logoUrl vacío
       );
 
       // Eliminar logo del storage
@@ -218,11 +269,16 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         await _storageService.deleteImage(_currentLogoUrl!);
       }
 
+      // ✅ ACTUALIZAR ESTADO LOCAL inmediatamente
       setState(() {
         _currentLogoUrl = null;
         _selectedLogo = null;
       });
 
+      // ✅ ACTUALIZAR en el ViewModel
+      businessViewModel.updateLocalBusiness(logoUrl: '');
+
+      // ✅ FORZAR RECARGA de datos
       final authViewModel = context.read<AuthViewModel>();
       final user = authViewModel.currentUser;
       if (user != null) {
@@ -304,8 +360,8 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         Stack(
           children: [
             Container(
-              width: 100,
-              height: 100,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(12),
@@ -323,7 +379,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
               ),
               child: _selectedLogo == null &&
                   (_currentLogoUrl == null || _currentLogoUrl!.isEmpty)
-                  ? const Icon(Icons.business, size: 40, color: Colors.grey)
+                  ? const Icon(Icons.business, size: 50, color: Colors.grey)
                   : null,
             ),
             Positioned(
@@ -336,7 +392,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
                   border: Border.all(color: Colors.white, width: 2),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                  icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
                   onPressed: _showLogoOptions,
                 ),
               ),
@@ -345,9 +401,21 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          _selectedLogo != null ? 'Nuevo logo seleccionado' : 'Toca para cambiar logo',
+          _selectedLogo != null
+              ? 'Nuevo logo seleccionado'
+              : _currentLogoUrl != null && _currentLogoUrl!.isNotEmpty
+              ? 'Logo actual'
+              : 'Toca para agregar logo',
           style: const TextStyle(color: Colors.grey),
         ),
+        if (_currentLogoUrl != null && _currentLogoUrl!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            'URL: ${_currentLogoUrl!.substring(0, 30)}...',
+            style: const TextStyle(color: Colors.grey, fontSize: 10),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ],
     );
   }
@@ -364,8 +432,9 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         TextFormField(
           controller: _nameController,
           decoration: const InputDecoration(
-            labelText: 'Nombre de la empresa',
+            labelText: 'Nombre de la empresa *',
             prefixIcon: Icon(Icons.business),
+            border: OutlineInputBorder(),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -389,8 +458,9 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
             });
           },
           decoration: const InputDecoration(
-            labelText: 'Categoría',
+            labelText: 'Categoría *',
             prefixIcon: Icon(Icons.category),
+            border: OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 16),
@@ -399,6 +469,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
           decoration: const InputDecoration(
             labelText: 'Descripción (opcional)',
             prefixIcon: Icon(Icons.description),
+            border: OutlineInputBorder(),
           ),
           maxLines: 3,
         ),
@@ -406,8 +477,9 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         TextFormField(
           controller: _addressController,
           decoration: const InputDecoration(
-            labelText: 'Dirección',
+            labelText: 'Dirección *',
             prefixIcon: Icon(Icons.location_on),
+            border: OutlineInputBorder(),
           ),
           maxLines: 2,
           validator: (value) {
@@ -421,8 +493,9 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
         TextFormField(
           controller: _phoneController,
           decoration: const InputDecoration(
-            labelText: 'Teléfono',
+            labelText: 'Teléfono *',
             prefixIcon: Icon(Icons.phone),
+            border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.phone,
           validator: (value) {
@@ -457,7 +530,7 @@ class _BusinessEditProfileScreenState extends State<BusinessEditProfileScreen> {
                 ? const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             )
                 : const Text('Guardar Cambios'),
           ),

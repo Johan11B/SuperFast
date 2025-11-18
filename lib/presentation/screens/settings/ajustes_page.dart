@@ -2,14 +2,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/business_viewmodel.dart';
 import '../auth/auth_wrapper.dart';
 import '../../../domain/entities/user_entity.dart';
+import '../../../domain/entities/business_entity.dart';
 
-// ✅ AGREGAR IMPORTACIONES DE LAS PANTALLAS DE EDICIÓN
+// Importar las pantallas de edición
 import '../user/user_edit_profile_screen.dart';
 import '../business/business_edit_profile_screen.dart';
 
-class AjustesPage extends StatelessWidget {
+class AjustesPage extends StatefulWidget {
   final Color primaryColor;
   final String userRole;
 
@@ -20,8 +22,41 @@ class AjustesPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<AjustesPage> createState() => _AjustesPageState();
+}
+
+class _AjustesPageState extends State<AjustesPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Forzar recarga al iniciar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshData();
+    });
+  }
+
+  void _refreshData() {
     final authViewModel = context.read<AuthViewModel>();
+    authViewModel.refreshUserData().then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
+    // Si es business, cargar datos de la empresa
+    if (widget.userRole == 'business') {
+      final businessViewModel = context.read<BusinessViewModel>();
+      final user = authViewModel.currentUser;
+      if (user != null) {
+        businessViewModel.loadCurrentBusiness(user.id);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authViewModel = context.watch<AuthViewModel>();
+    final user = authViewModel.currentUser;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -41,6 +76,7 @@ class AjustesPage extends StatelessWidget {
           ),
         ),
         centerTitle: false,
+        // ✅ MANTENIDO: Logo de SuperFast en AppBar
         actions: [
           Container(
             width: 40,
@@ -58,19 +94,19 @@ class AjustesPage extends StatelessWidget {
         ],
       ),
 
-      body: SingleChildScrollView(
+      body: user == null
+          ? _buildLoading()
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Información del usuario
-            if (authViewModel.currentUser != null) ...[
-              _buildUserInfo(context, authViewModel.currentUser!),
-              const SizedBox(height: 30),
-            ],
+            // Información del usuario/empresa
+            _buildUserInfo(context, user),
+            const SizedBox(height: 30),
 
-            // AJUSTES PRINCIPALES (según rol)
-            ..._buildMainSettings(context),
+            // AJUSTES PRINCIPALES
+            ..._buildMainSettings(context, user),
 
             const SizedBox(height: 20),
 
@@ -92,9 +128,22 @@ class AjustesPage extends StatelessWidget {
     );
   }
 
+  Widget _buildLoading() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Cargando información...'),
+        ],
+      ),
+    );
+  }
+
   // 🎨 CONFIGURACIÓN VISUAL POR ROL
   Color _getAppBarColor() {
-    switch (userRole) {
+    switch (widget.userRole) {
       case 'admin': return const Color(0xFF008C9E);
       case 'business': return Colors.orange;
       case 'user': return Colors.green;
@@ -103,7 +152,7 @@ class AjustesPage extends StatelessWidget {
   }
 
   String _getTitle() {
-    switch (userRole) {
+    switch (widget.userRole) {
       case 'admin': return "Ajustes Admin";
       case 'business': return "Ajustes Empresa";
       case 'user': return "Ajustes Usuario";
@@ -112,16 +161,16 @@ class AjustesPage extends StatelessWidget {
   }
 
   // ⚙️ AJUSTES PRINCIPALES SEGÚN ROL
-  List<Widget> _buildMainSettings(BuildContext context) {
-    switch (userRole) {
+  List<Widget> _buildMainSettings(BuildContext context, UserEntity user) {
+    switch (widget.userRole) {
       case 'admin':
         return _buildAdminMainSettings(context);
       case 'business':
-        return _buildBusinessMainSettings(context);
+        return _buildBusinessMainSettings(context, user);
       case 'user':
-        return _buildUserMainSettings(context);
+        return _buildUserMainSettings(context, user);
       default:
-        return _buildUserMainSettings(context);
+        return _buildUserMainSettings(context, user);
     }
   }
 
@@ -153,8 +202,8 @@ class AjustesPage extends StatelessWidget {
     ];
   }
 
-  // 🏢 AJUSTES PRINCIPALES PARA BUSINESS - ✅ CORREGIDO
-  List<Widget> _buildBusinessMainSettings(BuildContext context) {
+  // 🏢 AJUSTES PRINCIPALES PARA BUSINESS
+  List<Widget> _buildBusinessMainSettings(BuildContext context, UserEntity user) {
     return [
       _buildSectionTitle('Gestión del Negocio'),
       _buildSettingsItem(
@@ -162,12 +211,16 @@ class AjustesPage extends StatelessWidget {
         icon: Icons.store,
         title: 'Información de la Empresa',
         subtitle: 'Editar datos del negocio',
-        onTap: () {
-          // ✅ CORREGIDO: Navegar a la pantalla real en lugar de "Próximamente"
-          Navigator.push(
+        onTap: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const BusinessEditProfileScreen()),
           );
+
+          if (result == true && mounted) {
+            _refreshData();
+            _showSuccessMessage(context, 'Información de la empresa actualizada');
+          }
         },
       ),
       _buildSettingsItem(
@@ -187,8 +240,8 @@ class AjustesPage extends StatelessWidget {
     ];
   }
 
-  // 👤 AJUSTES PRINCIPALES PARA USER - ✅ CORREGIDO
-  List<Widget> _buildUserMainSettings(BuildContext context) {
+  // 👤 AJUSTES PRINCIPALES PARA USER
+  List<Widget> _buildUserMainSettings(BuildContext context, UserEntity user) {
     return [
       _buildSectionTitle('Mi Cuenta'),
       _buildSettingsItem(
@@ -196,12 +249,16 @@ class AjustesPage extends StatelessWidget {
         icon: Icons.person,
         title: 'Editar Perfil',
         subtitle: 'Actualizar información personal',
-        onTap: () {
-          // ✅ CORREGIDO: Navegar a la pantalla real en lugar de "Próximamente"
-          Navigator.push(
+        onTap: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const UserEditProfileScreen()),
           );
+
+          if (result == true && mounted) {
+            _refreshData();
+            _showSuccessMessage(context, 'Perfil actualizado correctamente');
+          }
         },
       ),
       _buildSettingsItem(
@@ -238,7 +295,7 @@ class AjustesPage extends StatelessWidget {
           context: context,
           icon: Icons.language,
           title: 'Idioma',
-          subtitle: 'Seleccionar idiama de la aplicación',
+          subtitle: 'Seleccionar idioma de la aplicación',
           onTap: () => _showComingSoon(context, 'Selección de Idioma'),
         ),
         _buildSettingsItem(
@@ -283,8 +340,11 @@ class AjustesPage extends StatelessWidget {
     );
   }
 
-  // 👤 INFORMACIÓN DEL USUARIO
+  // 👤 INFORMACIÓN DEL USUARIO/EMPRESA - CORREGIDA
   Widget _buildUserInfo(BuildContext context, UserEntity user) {
+    final businessViewModel = context.watch<BusinessViewModel>();
+    final business = businessViewModel.currentBusiness;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -294,53 +354,33 @@ class AjustesPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Avatar del usuario
-          GestureDetector(
-            onTap: () => _showImageOptions(context, user),
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: _getRoleColor(),
-                  backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                  child: user.photoUrl == null
-                      ? Text(
-                    user.name?.isNotEmpty == true
-                        ? user.name!.substring(0, 1).toUpperCase()
-                        : user.email.substring(0, 1).toUpperCase(),
-                    style: const TextStyle(fontSize: 20, color: Colors.white),
-                  )
-                      : null,
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // ✅ CORREGIDO: Mostrar logo de empresa si es business, sino avatar de usuario
+          if (widget.userRole == 'business' && business != null)
+            _buildBusinessLogo(business)
+          else
+            _buildUserAvatar(user),
+
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.name ?? 'Usuario',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  widget.userRole == 'business' && business != null
+                      ? business.name
+                      : user.name ?? 'Usuario',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   user.email,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Container(
@@ -358,11 +398,108 @@ class AjustesPage extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Información adicional para empresas
+                if (widget.userRole == 'business' && business != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    business.category,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+                // Información sobre cómo cambiar la imagen
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    _showImageInfo(context);
+                  },
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info,
+                        size: 14,
+                        color: Colors.blue.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Para cambiar ${widget.userRole == 'business' ? 'el logo' : 'la imagen'}, ve a "Editar Perfil"',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ✅ NUEVO: Widget para mostrar logo de empresa
+  Widget _buildBusinessLogo(BusinessEntity business) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        image: business.logoUrl != null && business.logoUrl!.isNotEmpty
+            ? DecorationImage(
+          image: NetworkImage(business.logoUrl!),
+          fit: BoxFit.cover,
+        )
+            : null,
+        border: Border.all(
+          color: Colors.orange.withOpacity(0.3),
+        ),
+      ),
+      child: business.logoUrl == null || business.logoUrl!.isEmpty
+          ? const Center(
+        child: Icon(
+          Icons.business,
+          color: Colors.orange,
+          size: 30,
+        ),
+      )
+          : null,
+    );
+  }
+
+  // ✅ NUEVO: Widget para mostrar avatar de usuario
+  Widget _buildUserAvatar(UserEntity user) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: _getRoleColor(),
+        borderRadius: BorderRadius.circular(30),
+        image: user.photoUrl != null && user.photoUrl!.isNotEmpty
+            ? DecorationImage(
+          image: NetworkImage(user.photoUrl!),
+          fit: BoxFit.cover,
+        )
+            : null,
+      ),
+      child: user.photoUrl == null || user.photoUrl!.isEmpty
+          ? Center(
+        child: Text(
+          user.name?.isNotEmpty == true
+              ? user.name!.substring(0, 1).toUpperCase()
+              : user.email.substring(0, 1).toUpperCase(),
+          style: const TextStyle(
+            fontSize: 20,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      )
+          : null,
     );
   }
 
@@ -395,10 +532,10 @@ class AjustesPage extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.1),
+            color: widget.primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: primaryColor, size: 20),
+          child: Icon(icon, color: widget.primaryColor, size: 20),
         ),
         title: Text(
           title,
@@ -443,7 +580,7 @@ class AjustesPage extends StatelessWidget {
 
   // 🎨 COLORES Y TEXTO POR ROL
   Color _getRoleColor() {
-    switch (userRole) {
+    switch (widget.userRole) {
       case 'admin': return Colors.red;
       case 'business': return Colors.orange;
       case 'user': return Colors.green;
@@ -452,7 +589,7 @@ class AjustesPage extends StatelessWidget {
   }
 
   String _getRoleDisplayName() {
-    switch (userRole) {
+    switch (widget.userRole) {
       case 'admin': return 'ADMINISTRADOR';
       case 'business': return 'EMPRESA';
       case 'user': return 'USUARIO';
@@ -460,43 +597,101 @@ class AjustesPage extends StatelessWidget {
     }
   }
 
-  // 📸 OPCIONES PARA CAMBIAR IMAGEN
-  void _showImageOptions(BuildContext context, UserEntity user) {
-    showModalBottomSheet(
+  // ℹ️ INFORMACIÓN SOBRE CÓMO CAMBIAR LA IMAGEN
+  void _showImageInfo(BuildContext context) {
+    showDialog(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      builder: (context) => AlertDialog(
+        title: Row(
           children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Elegir de la galería'),
-              onTap: () {
-                Navigator.pop(context);
-                _showComingSoon(context, 'Cambiar imagen de perfil');
-              },
+            Icon(
+              widget.userRole == 'business' ? Icons.store : Icons.photo_camera,
+              color: Colors.blue,
             ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Tomar foto'),
-              onTap: () {
-                Navigator.pop(context);
-                _showComingSoon(context, 'Tomar foto para perfil');
-              },
+            const SizedBox(width: 8),
+            Text(
+              widget.userRole == 'business'
+                  ? 'Cambiar Logo de Empresa'
+                  : 'Cambiar Imagen de Perfil',
             ),
-            if (user.photoUrl != null) ...[
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Eliminar foto', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showComingSoon(context, 'Eliminar imagen de perfil');
-                },
-              ),
-            ],
           ],
         ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Para cambiar ${widget.userRole == 'business' ? 'el logo de tu empresa' : 'tu imagen de perfil'}:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildInfoStep('1. Ve a "Editar Perfil" en la sección de ajustes'),
+            _buildInfoStep('2. En la pantalla de edición, toca el ícono de cámara'),
+            _buildInfoStep('3. Selecciona una imagen desde tu galería o toma una foto'),
+            _buildInfoStep('4. Guarda los cambios'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                widget.userRole == 'business'
+                    ? 'El logo se actualizará automáticamente en todas las pantallas de tu empresa'
+                    : 'La imagen se actualizará automáticamente en todas las pantallas',
+                style: const TextStyle(fontSize: 12, color: Colors.blue),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Entendido'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Navegar a la pantalla de edición correspondiente
+              if (widget.userRole == 'business') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BusinessEditProfileScreen()),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UserEditProfileScreen()),
+                );
+              }
+            },
+            child: Text(
+              widget.userRole == 'business'
+                  ? 'Ir a Editar Empresa'
+                  : 'Ir a Editar Perfil',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoStep(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -573,6 +768,17 @@ class AjustesPage extends StatelessWidget {
         );
       }
     }
+  }
+
+  // ✅ NUEVO MÉTODO: Mostrar mensaje de éxito
+  void _showSuccessMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // 🚧 FUNCIÓN PARA OPCIONES NO IMPLEMENTADAS

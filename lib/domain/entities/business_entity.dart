@@ -19,7 +19,7 @@ class BusinessEntity {
   final DateTime? approvedAt;
   final DateTime? suspendedAt;
   final DateTime? rejectedAt;
-  final String? logoUrl; // ✅ NUEVO CAMPO AGREGADO
+  final String? logoUrl;
 
   const BusinessEntity({
     required this.id,
@@ -38,7 +38,7 @@ class BusinessEntity {
     this.approvedAt,
     this.suspendedAt,
     this.rejectedAt,
-    this.logoUrl, // ✅ AGREGADO AL CONSTRUCTOR
+    this.logoUrl,
   });
 
   // ✅ PROPIEDADES COMPUTADAS PARA ESTADO
@@ -46,7 +46,7 @@ class BusinessEntity {
   bool get isApproved => status == 'approved';
   bool get isSuspended => status == 'suspended';
   bool get isRejected => status == 'rejected';
-  bool get isActive => isApproved; // Solo las aprobadas están activas
+  bool get isActive => isApproved;
 
   // ✅ COLORES SEGÚN ESTADO
   Color get statusColor {
@@ -72,11 +72,24 @@ class BusinessEntity {
 
   // Convertir desde Map
   factory BusinessEntity.fromMap(Map<String, dynamic> map) {
+    DateTime _parseDateTime(dynamic date) {
+      if (date == null) return DateTime.now();
+      if (date is Timestamp) {
+        return date.toDate();
+      } else if (date is int) {
+        return DateTime.fromMillisecondsSinceEpoch(date);
+      } else if (date is String) {
+        return DateTime.parse(date);
+      } else {
+        return DateTime.now();
+      }
+    }
+
     return BusinessEntity(
       id: map['id'] ?? '',
       ownerId: map['userId'] ?? map['ownerId'] ?? '',
-      name: map['businessName'] ?? map['name'] ?? '', // ✅ SOPORTA AMBOS NOMBRES
-      email: map['userEmail'] ?? map['email'] ?? '', // ✅ SOPORTA AMBOS NOMBRES
+      name: map['businessName'] ?? map['name'] ?? '',
+      email: map['userEmail'] ?? map['email'] ?? '',
       category: map['category'] ?? '',
       address: map['address'] ?? '',
       phone: map['phone'] ?? '',
@@ -84,32 +97,12 @@ class BusinessEntity {
       status: map['status'] ?? 'pending',
       rating: (map['rating'] ?? 0.0).toDouble(),
       reviewCount: (map['reviewCount'] ?? 0).toInt(),
-      logoUrl: map['logoUrl'] ?? map['logo_url'], // ✅ SOPORTA AMBOS NOMBRES
-      createdAt: map['createdAt'] != null
-          ? (map['createdAt'] is Timestamp
-          ? (map['createdAt'] as Timestamp).toDate()
-          : DateTime.parse(map['createdAt'].toString()))
-          : DateTime.now(),
-      updatedAt: map['updatedAt'] != null
-          ? (map['updatedAt'] is Timestamp
-          ? (map['updatedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['updatedAt'].toString()))
-          : null,
-      approvedAt: map['approvedAt'] != null
-          ? (map['approvedAt'] is Timestamp
-          ? (map['approvedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['approvedAt'].toString()))
-          : null,
-      suspendedAt: map['suspendedAt'] != null
-          ? (map['suspendedAt'] is Timestamp
-          ? (map['suspendedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['suspendedAt'].toString()))
-          : null,
-      rejectedAt: map['rejectedAt'] != null
-          ? (map['rejectedAt'] is Timestamp
-          ? (map['rejectedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['rejectedAt'].toString()))
-          : null,
+      logoUrl: map['logoUrl'] ?? map['logo_url'],
+      createdAt: _parseDateTime(map['createdAt']),
+      updatedAt: map['updatedAt'] != null ? _parseDateTime(map['updatedAt']) : null,
+      approvedAt: map['approvedAt'] != null ? _parseDateTime(map['approvedAt']) : null,
+      suspendedAt: map['suspendedAt'] != null ? _parseDateTime(map['suspendedAt']) : null,
+      rejectedAt: map['rejectedAt'] != null ? _parseDateTime(map['rejectedAt']) : null,
     );
   }
 
@@ -127,41 +120,52 @@ class BusinessEntity {
       'status': status,
       'rating': rating,
       'reviewCount': reviewCount,
-      'logoUrl': logoUrl, // ✅ AGREGADO
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'updatedAt': updatedAt?.millisecondsSinceEpoch,
-      'approvedAt': approvedAt?.millisecondsSinceEpoch,
-      'suspendedAt': suspendedAt?.millisecondsSinceEpoch,
-      'rejectedAt': rejectedAt?.millisecondsSinceEpoch,
+      'logoUrl': logoUrl,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,
+      'suspendedAt': suspendedAt != null ? Timestamp.fromDate(suspendedAt!) : null,
+      'rejectedAt': rejectedAt != null ? Timestamp.fromDate(rejectedAt!) : null,
     };
   }
 
-  // ✅ MÉTODO COPYWITH PARA ACTUALIZACIONES
+  // ✅ MÉTODO COPYWITH COMPLETO
   BusinessEntity copyWith({
+    String? id,
+    String? ownerId,
     String? name,
-    String? description,
+    String? email,
     String? category,
     String? address,
     String? phone,
+    String? description,
+    String? status,
+    double? rating,
+    int? reviewCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? approvedAt,
+    DateTime? suspendedAt,
+    DateTime? rejectedAt,
     String? logoUrl,
   }) {
     return BusinessEntity(
-      id: id,
-      ownerId: ownerId,
+      id: id ?? this.id,
+      ownerId: ownerId ?? this.ownerId,
       name: name ?? this.name,
-      email: email,
+      email: email ?? this.email,
       category: category ?? this.category,
       address: address ?? this.address,
       phone: phone ?? this.phone,
       description: description ?? this.description,
-      status: status,
-      rating: rating,
-      reviewCount: reviewCount,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      approvedAt: approvedAt,
-      suspendedAt: suspendedAt,
-      rejectedAt: rejectedAt,
+      status: status ?? this.status,
+      rating: rating ?? this.rating,
+      reviewCount: reviewCount ?? this.reviewCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      approvedAt: approvedAt ?? this.approvedAt,
+      suspendedAt: suspendedAt ?? this.suspendedAt,
+      rejectedAt: rejectedAt ?? this.rejectedAt,
       logoUrl: logoUrl ?? this.logoUrl,
     );
   }

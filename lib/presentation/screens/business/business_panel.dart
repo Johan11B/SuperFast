@@ -8,9 +8,10 @@ import '../performance/performance_results_page.dart';
 
 // Importar las pantallas especializadas
 import 'business_products_screen.dart';
-import 'business_orders_screen.dart'; // Asumimos que existe
-import 'business_statistics_screen.dart'; // Asumimos que existe
-import 'business_dashboard_screen.dart'; // Asumimos que existe
+import 'business_orders_screen.dart';
+import 'business_statistics_screen.dart';
+import 'business_dashboard_screen.dart';
+import 'business_edit_profile_screen.dart';
 
 class BusinessPanel extends StatefulWidget {
   const BusinessPanel({super.key});
@@ -75,14 +76,145 @@ class _BusinessPanelState extends State<BusinessPanel> {
     _previousIndex = currentIndex;
   }
 
+  // ✅ CORREGIDO: Método para mostrar información de la empresa
+  void _showBusinessInfo() {
+    final businessViewModel = context.read<BusinessViewModel>();
+    final business = businessViewModel.currentBusiness;
+
+    if (business == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.business, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Información General'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Logo de la empresa
+              if (business.logoUrl != null && business.logoUrl!.isNotEmpty)
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: NetworkImage(business.logoUrl!),
+                            fit: BoxFit.cover,
+                          ),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      const Text(
+                        'Logo de la Empresa',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              _buildInfoItem('🏢 Nombre:', business.name),
+              _buildInfoItem('📁 Categoría:', business.category),
+              _buildInfoItem('📍 Dirección:', business.address),
+              _buildInfoItem('📞 Teléfono:', business.phone),
+              if (business.description != null && business.description!.isNotEmpty)
+                _buildInfoItem('📝 Descripción:', business.description!),
+              _buildInfoItem('📊 Estado:', business.statusDisplayText),
+              _buildInfoItem('⭐ Rating:', '${business.rating} (${business.reviewCount} reseñas)'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info, size: 16, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Para cambiar el logo de la empresa, ve a "Editar Perfil"',
+                        style: TextStyle(fontSize: 12, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BusinessEditProfileScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Editar Perfil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final businessViewModel = context.watch<BusinessViewModel>();
+    final business = businessViewModel.currentBusiness;
 
     return Scaffold(
       backgroundColor: scaffoldBackgroundColor,
 
-      // 1. AppBar Personalizado (igual que AdminPanel)
+      // 1. AppBar Personalizado - CORREGIDO
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(80.0),
         child: Container(
@@ -91,7 +223,7 @@ class _BusinessPanelState extends State<BusinessPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Logo (Lado Izquierdo)
+              // ✅ LOGO DE SUPERFAST (Lado Izquierdo) - SIEMPRE FIJO
               Container(
                 width: 40,
                 height: 40,
@@ -105,26 +237,41 @@ class _BusinessPanelState extends State<BusinessPanel> {
                 ),
               ),
 
-              // Título Centrado
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    "Panel de Empresa",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      height: 1.0,
-                    ),
+              // ✅ TÍTULO CENTRADO con información de la empresa
+              Expanded(
+                child: GestureDetector(
+                  onTap: _showBusinessInfo,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        business?.name ?? "Panel de Empresa",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 40,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ),
 
-              // Iconos (Lado Derecho)
+              // ✅ ICONOS (Lado Derecho)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Icono de Información de Empresa - SOLO si hay empresa
+                  if (business != null)
+                    IconButton(
+                      icon: const Icon(Icons.business, color: Colors.white),
+                      onPressed: _showBusinessInfo,
+                      tooltip: 'Información de la empresa',
+                    ),
                   // Icono de Ajustes
                   IconButton(
                     icon: const Icon(Icons.settings, color: Colors.white),
@@ -139,7 +286,8 @@ class _BusinessPanelState extends State<BusinessPanel> {
                         ),
                       );
                     },
-                  )
+                    tooltip: 'Configuración',
+                  ),
                 ],
               ),
             ],
@@ -181,6 +329,17 @@ class _BusinessPanelState extends State<BusinessPanel> {
           BottomNavigationBarItem(icon: Icon(Icons.analytics), label: "Estadísticas"),
         ],
       ),
+
+      // ✅ BOTÓN FLOTANTE para ver información de la empresa
+      floatingActionButton: business != null
+          ? FloatingActionButton(
+        onPressed: _showBusinessInfo,
+        backgroundColor: Colors.orange,
+        mini: true,
+        child: const Icon(Icons.business, color: Colors.white),
+        tooltip: 'Ver información de la empresa',
+      )
+          : null,
     );
   }
 }
