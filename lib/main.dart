@@ -20,6 +20,8 @@ import 'core/services/supabase_storage_service.dart';
 import 'core/services/catalog_service.dart';
 import 'core/services/user_profile_service.dart';
 import 'core/services/business_profile_service.dart';
+import 'presentation/viewmodels/order_viewmodel.dart';
+import 'presentation/viewmodels/cart_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +54,8 @@ class SuperFastApp extends StatelessWidget {
         Provider(create: (_) => CatalogService()),
         Provider(create: (_) => UserProfileService()),
         Provider(create: (_) => BusinessProfileService()),
+        Provider(create: (_) => OrderService()),
+        Provider(create: (_) => OrderService()),
 
         // ========== SERVICIOS QUE DEPENDEN DE OTROS ==========
         Provider<ProductService>(
@@ -83,6 +87,16 @@ class SuperFastApp extends StatelessWidget {
           ),
         ),
 
+        ChangeNotifierProvider<CartViewModel>(
+          create: (_) => CartViewModel(),
+        ),
+
+        ChangeNotifierProvider<OrderViewModel>(
+          create: (context) => OrderViewModel(
+            orderService: context.read<OrderService>(),
+          ),
+        ),
+
         ChangeNotifierProvider<BusinessViewModel>(
           create: (context) => BusinessViewModel(
             productService: context.read<ProductService>(),
@@ -99,6 +113,12 @@ class SuperFastApp extends StatelessWidget {
               catalogService: context.read<CatalogService>(),
             );
           },
+        ),
+        // ✅ AGREGAR ORDER VIEWMODEL
+        ChangeNotifierProvider<OrderViewModel>(
+          create: (context) => OrderViewModel(
+            orderService: context.read<OrderService>(),
+          ),
         ),
       ],
       child: MaterialApp(

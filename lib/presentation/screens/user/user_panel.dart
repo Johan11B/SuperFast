@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/catalog_viewmodel.dart';
+import '../../viewmodels/cart_viewmodel.dart';
 import '../settings/ajustes_page.dart';
 import '../business/business_registration_page.dart';
 
@@ -10,6 +11,7 @@ import '../business/business_registration_page.dart';
 import 'user_catalog_screen.dart';
 import 'user_orders_screen.dart'; // Placeholder por ahora
 import 'user_profile_screen.dart'; // Perfil del usuario
+import 'cart_screen.dart';
 
 class UserPanel extends StatefulWidget {
   const UserPanel({super.key});
@@ -79,6 +81,7 @@ class _UserPanelState extends State<UserPanel> {
   @override
   Widget build(BuildContext context) {
     final authViewModel = context.watch<AuthViewModel>();
+    final cartViewModel = context.watch<CartViewModel>();
 
     return Scaffold(
       backgroundColor: scaffoldBackgroundColor,
@@ -92,7 +95,7 @@ class _UserPanelState extends State<UserPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Logo (Lado Izquierdo)
+              // Logo
               Container(
                 width: 40,
                 height: 40,
@@ -106,7 +109,7 @@ class _UserPanelState extends State<UserPanel> {
                 ),
               ),
 
-              // Título Centrado
+              // Título
               const Expanded(
                 child: Center(
                   child: Text(
@@ -122,19 +125,49 @@ class _UserPanelState extends State<UserPanel> {
                 ),
               ),
 
-              // Iconos (Lado Derecho)
+              // Iconos - ACTUALIZAR CARRITO
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icono de Carrito (futuro)
-                  IconButton(
-                    icon: const Icon(Icons.shopping_cart, color: Colors.white, size: 22),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Carrito - Próximamente')),
-                      );
-                    },
-                    tooltip: 'Carrito de compras',
+                  // Icono de Carrito - AHORA FUNCIONAL
+                  Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.shopping_cart, color: Colors.white, size: 22),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CartScreen()),
+                          );
+                        },
+                        tooltip: 'Carrito de compras',
+                      ),
+                      if (cartViewModel.itemCount > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              cartViewModel.itemCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   // Icono de Ajustes
                   IconButton(
@@ -149,7 +182,6 @@ class _UserPanelState extends State<UserPanel> {
                           ),
                         ),
                       ).then((_) {
-                        // ✅ RECARGAR DATOS AL VOLVER DE AJUSTES
                         _loadCatalogData();
                       });
                     },

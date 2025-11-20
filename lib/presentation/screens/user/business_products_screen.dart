@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../domain/entities/business_entity.dart';
 import '../../../domain/entities/product_entity.dart';
 import '../../viewmodels/catalog_viewmodel.dart';
+import '../../viewmodels/cart_viewmodel.dart';
 
 class BusinessProductsScreen extends StatefulWidget {
   final BusinessEntity business;
@@ -222,8 +223,12 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
     );
   }
 
-  // 🎯 TARJETA DE PRODUCTO
+  // 🛒 ACTUALIZAR EL BOTÓN "AGREGAR"
   Widget _buildProductCard(ProductEntity product, CatalogViewModel catalogViewModel) {
+    final cartViewModel = context.watch<CartViewModel>(); // ✅ AGREGAR
+    final isInCart = cartViewModel.isInCart(product.id);
+    final cartQuantity = cartViewModel.getProductQuantity(product.id);
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -301,7 +306,9 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
           ],
         ),
         trailing: product.canBeSold
-            ? ElevatedButton(
+            ? isInCart
+            ? _buildCartControls(product, cartViewModel, cartQuantity) // ✅ NUEVO
+            : ElevatedButton(
           onPressed: () {
             _showAddToCartDialog(product, context);
           },
@@ -323,6 +330,48 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
           _showProductDetails(product, catalogViewModel);
         },
       ),
+    );
+  }
+
+  // 🛒 CONTROLES DE CANTIDAD EN CARRITO
+  Widget _buildCartControls(ProductEntity product, CartViewModel cartViewModel, int quantity) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.remove, size: 18),
+          onPressed: () {
+            if (quantity > 1) {
+              cartViewModel.updateQuantity(product.id, quantity - 1);
+            } else {
+              cartViewModel.removeFromCart(product.id);
+            }
+          },
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+        Text(
+          '$quantity',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add, size: 18),
+          onPressed: () {
+            if (quantity < product.stock) {
+              cartViewModel.updateQuantity(product.id, quantity + 1);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No hay más stock disponible')),
+              );
+            }
+          },
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ],
     );
   }
 
@@ -402,6 +451,8 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
 
   // 🛒 DIÁLOGO AGREGAR AL CARRITO
   void _showAddToCartDialog(ProductEntity product, BuildContext context) {
+    final cartViewModel = context.read<CartViewModel>();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -428,6 +479,7 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
+              cartViewModel.addToCart(product);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('${product.name} agregado al carrito'),

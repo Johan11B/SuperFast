@@ -160,7 +160,78 @@ class OrderService {
       rethrow;
     }
   }
+  // 🔹 Obtener pedidos por negocio
+  Future<List<OrderEntity>> getOrdersByBusiness(String businessId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('orders')
+          .where('businessId', isEqualTo: businessId)
+          .orderBy('createdAt', descending: true)
+          .get();
 
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return _documentToOrder(doc.id, data);
+      }).toList();
+    } catch (e) {
+      print('❌ Error obteniendo pedidos por negocio: $e');
+      return [];
+    }
+  }
+
+  // 🔹 Obtener pedidos por estado y negocio
+  Future<List<OrderEntity>> getBusinessOrdersByStatus(String businessId, String status) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('orders')
+          .where('businessId', isEqualTo: businessId)
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return _documentToOrder(doc.id, data);
+      }).toList();
+    } catch (e) {
+      print('❌ Error obteniendo pedidos por estado: $e');
+      return [];
+    }
+  }
+
+  // 🔹 Agregar nota al pedido
+  Future<void> addOrderNote(String orderId, String note) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({
+        'orderNotes': FieldValue.arrayUnion([note]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('❌ Error agregando nota al pedido: $e');
+      rethrow;
+    }
+  }
+
+  // 🔹 Obtener estadísticas de pedidos
+  Future<Map<String, dynamic>> getOrderStats(String businessId) async {
+    try {
+      final orders = await getOrdersByBusiness(businessId);
+
+      return {
+        'total': orders.length,
+        'pending': orders.where((o) => o.isPending).length,
+        'confirmed': orders.where((o) => o.isConfirmed).length,
+        'preparing': orders.where((o) => o.isPreparing).length,
+        'ready': orders.where((o) => o.isReady).length,
+        'delivered': orders.where((o) => o.isDelivered).length,
+        'cancelled': orders.where((o) => o.isCancelled).length,
+        'totalRevenue': orders.fold(0.0, (sum, order) => sum + order.totalAmount),
+      };
+    } catch (e) {
+      print('❌ Error obteniendo estadísticas: $e');
+      return {};
+    }
+  }
   // Método auxiliar para convertir documento a OrderEntity
   OrderEntity _documentToOrder(String id, Map<String, dynamic> data) {
     // Convertir items

@@ -22,6 +22,12 @@ class OrderEntity {
   final String? paymentStatus; // pending, paid, failed, refunded
   final double? rating;
   final String? review;
+  final String? businessLogoUrl;
+  final String? userPhone;
+  final List<String>? orderNotes; // Notas del negocio sobre el pedido
+  final double? preparationTime; // Tiempo estimado en minutos
+  final String? rejectionReason; // Motivo de rechazo si aplica
+
 
   OrderEntity({
     required this.id,
@@ -44,6 +50,11 @@ class OrderEntity {
     this.paymentStatus,
     this.rating,
     this.review,
+    this.businessLogoUrl,
+    this.userPhone,
+    this.orderNotes,
+    this.preparationTime,
+    this.rejectionReason,
   });
 
   // ✅ AGREGAR ESTE MÉTODO copyWith
@@ -68,6 +79,11 @@ class OrderEntity {
     String? paymentStatus,
     double? rating,
     String? review,
+    String? businessLogoUrl,
+    String? userPhone,
+    List<String>? orderNotes,
+    double? preparationTime,
+    String? rejectionReason,
   }) {
     return OrderEntity(
       id: id ?? this.id,
@@ -90,6 +106,11 @@ class OrderEntity {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       rating: rating ?? this.rating,
       review: review ?? this.review,
+      businessLogoUrl: businessLogoUrl ?? this.businessLogoUrl,
+      userPhone: userPhone ?? this.userPhone,
+      orderNotes: orderNotes ?? this.orderNotes,
+      preparationTime: preparationTime ?? this.preparationTime,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 
