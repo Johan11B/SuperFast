@@ -67,6 +67,8 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
 
   // 🏢 HEADER DE LA EMPRESA
   Widget _buildBusinessHeader() {
+    final hasLogo = widget.business.logoUrl != null && widget.business.logoUrl!.isNotEmpty;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -76,7 +78,33 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
       ),
       child: Row(
         children: [
-          _buildBusinessImage(widget.business),
+          // ✅ LOGO REAL DE LA EMPRESA
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: hasLogo ? Colors.transparent : Colors.green,
+              borderRadius: BorderRadius.circular(8),
+              image: hasLogo
+                  ? DecorationImage(
+                image: NetworkImage(widget.business.logoUrl!),
+                fit: BoxFit.cover,
+              )
+                  : null,
+            ),
+            child: hasLogo
+                ? null
+                : Center(
+              child: Text(
+                widget.business.name[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

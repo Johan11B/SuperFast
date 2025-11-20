@@ -401,11 +401,14 @@ class _UserCatalogScreenState extends State<UserCatalogScreen> {
 
   // 🏢 IMAGEN DE LA EMPRESA
   Widget _buildBusinessImage(BusinessEntity business) {
+    // ✅ VERIFICAR si la empresa tiene logoUrl
+    final hasLogo = business.logoUrl != null && business.logoUrl!.isNotEmpty;
+
     return Container(
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: Colors.green,
+        color: hasLogo ? Colors.transparent : Colors.green,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -414,8 +417,17 @@ class _UserCatalogScreenState extends State<UserCatalogScreen> {
             offset: const Offset(0, 2),
           ),
         ],
+        // ✅ MOSTRAR LOGO SI EXISTE
+        image: hasLogo
+            ? DecorationImage(
+          image: NetworkImage(business.logoUrl!),
+          fit: BoxFit.cover,
+        )
+            : null,
       ),
-      child: Center(
+      child: hasLogo
+          ? null // No mostrar texto si hay logo
+          : Center(
         child: Text(
           business.name[0].toUpperCase(),
           style: const TextStyle(
