@@ -44,6 +44,7 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
       _nameController.text = user.name ?? '';
       _emailController.text = user.email;
       _currentPhotoUrl = user.photoUrl;
+      print('🔄 Datos de usuario cargados: ${user.name}, PhotoURL: ${user.photoUrl}');
     }
   }
 
@@ -54,6 +55,7 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
         setState(() {
           _selectedImage = imageFile;
         });
+        print('🖼️ Nueva imagen seleccionada desde galería');
       }
     } catch (e) {
       _showErrorSnackbar('Error seleccionando imagen: $e');
@@ -67,6 +69,7 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
         setState(() {
           _selectedImage = imageFile;
         });
+        print('🖼️ Nueva imagen tomada con cámara');
       }
     } catch (e) {
       _showErrorSnackbar('Error tomando foto: $e');
@@ -82,11 +85,13 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
 
       if (user == null) throw Exception('Usuario no autenticado');
 
+      print('🔄 Subiendo imagen de perfil para usuario: ${user.id}');
       final imageUrl = await _storageService.uploadProfileImage(
         _selectedImage!,
         user.id,
       );
 
+      print('✅ Imagen de perfil subida exitosamente: $imageUrl');
       return imageUrl;
     } catch (e) {
       _showErrorSnackbar('Error subiendo imagen: $e');
@@ -94,6 +99,7 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
     }
   }
 
+  // ✅ CORREGIDO: Método mejorado para guardar perfil
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -111,6 +117,7 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
       String? newPhotoUrl;
       if (_selectedImage != null) {
         newPhotoUrl = await _uploadProfileImage();
+        print('✅ Nueva foto subida: $newPhotoUrl');
       }
 
       // Actualizar perfil
@@ -122,14 +129,23 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
         photoUrl: newPhotoUrl,
       );
 
-      // ✅ CORREGIDO: Ahora el método existe en AuthViewModel
-      await authViewModel.loadCurrentUser();
+      // ✅ CORREGIDO: Forzar recarga completa del usuario
+      await authViewModel.refreshUserData();
+
+      // ✅ ACTUALIZAR también los datos locales inmediatamente
+      authViewModel.updateUserProfileData(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim() != user.email ?
+        _emailController.text.trim() : null,
+        photoUrl: newPhotoUrl ?? _currentPhotoUrl,
+      );
 
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true); // Devolver true para indicar éxito
         _showSuccessSnackbar('Perfil actualizado exitosamente');
       }
     } catch (e) {
+      print('❌ Error en _saveProfile: $e');
       _showErrorSnackbar('Error actualizando perfil: $e');
     } finally {
       if (mounted) {
@@ -198,7 +214,7 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
                 _takePhoto();
               },
             ),
-            if (_currentPhotoUrl != null) ...[
+            if (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty) ...[
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
@@ -236,8 +252,9 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
         _selectedImage = null;
       });
 
-      // ✅ CORREGIDO: Ahora el método existe en AuthViewModel
-      await authViewModel.loadCurrentUser();
+      // ✅ CORREGIDO: Actualizar ViewModel
+      await authViewModel.refreshUserData();
+      authViewModel.updateUserProfileData(photoUrl: '');
 
       _showSuccessSnackbar('Foto eliminada exitosamente');
     } catch (e) {
@@ -342,9 +359,19 @@ class _UserEditProfileScreenState extends State<UserEditProfileScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          _selectedImage != null ? 'Nueva imagen seleccionada' : 'Toca para cambiar foto',
+          _selectedImage != null ? 'Nueva imagen seleccionada' :
+          (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty ?
+          'Foto actual' : 'Toca para cambiar foto'),
           style: const TextStyle(color: Colors.grey),
         ),
+        if (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            'URL: ${_currentPhotoUrl!.substring(0, 30)}...',
+            style: const TextStyle(color: Colors.grey, fontSize: 10),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ],
     );
   }

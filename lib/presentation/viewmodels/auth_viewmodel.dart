@@ -1,4 +1,4 @@
-// lib/presentation/viewmodels/auth_viewmodel.dart
+// lib/presentation/viewmodels/auth_viewmodel.dart - VERSIÓN COMPLETA
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -97,7 +97,6 @@ class AuthViewModel with ChangeNotifier {
             return false;
           }
         } on FirebaseAuthException catch (e) {
-          // ✅ MEJORADO: Manejo específico de errores de Firebase
           String errorMessage;
           switch (e.code) {
             case 'invalid-credential':
@@ -152,7 +151,6 @@ class AuthViewModel with ChangeNotifier {
             return false;
           }
         } on FirebaseAuthException catch (e) {
-          // ✅ MEJORADO: Manejo específico de errores de registro
           String errorMessage;
           switch (e.code) {
             case 'email-already-in-use':
@@ -307,7 +305,7 @@ class AuthViewModel with ChangeNotifier {
     );
   }
 
-  // ✅ NUEVO MÉTODO AGREGADO: Cargar datos actualizados del usuario
+  // ✅ MÉTODO AGREGADO: Cargar datos actualizados del usuario
   Future<void> loadCurrentUser() async {
     try {
       setLoading(true);
@@ -315,11 +313,6 @@ class AuthViewModel with ChangeNotifier {
       // Obtener el usuario actual de Firebase Auth
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser != null) {
-        // Usar el authRepository para obtener los datos actualizados
-        // Esto depende de cómo esté implementado tu repositorio
-        // Si tu repositorio no tiene getUserById, puedes usar el usuario actual del stream
-        // o implementar la lógica aquí según tu estructura de datos
-
         debugPrint('🔄 Cargando datos actualizados del usuario: ${firebaseUser.uid}');
 
         // Por ahora, simplemente actualizamos con los datos que ya tenemos
@@ -338,7 +331,7 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
-  // ✅ MÉTODO ALTERNATIVO: Para cuando necesites forzar una recarga completa
+  // ✅ MÉTODO AGREGADO: Para cuando necesites forzar una recarga completa
   Future<void> refreshUserData() async {
     try {
       setLoading(true);
@@ -347,8 +340,16 @@ class AuthViewModel with ChangeNotifier {
       if (firebaseUser != null) {
         debugPrint('🔄 Refrescando datos del usuario: ${firebaseUser.uid}');
 
-        // Aquí puedes agregar lógica específica para recargar desde tu base de datos
-        // Por ahora, simplemente notificamos a los listeners
+        // ✅ USAR EL NUEVO MÉTODO getCurrentUser
+        final updatedUser = await authRepository.getCurrentUser();
+        if (updatedUser != null) {
+          _currentUser = updatedUser;
+          debugPrint('✅ Datos de usuario actualizados: ${updatedUser.email}');
+          debugPrint('📸 PhotoUrl actualizada: ${updatedUser.photoUrl}');
+        } else {
+          debugPrint('⚠️ No se pudieron obtener datos actualizados del usuario');
+        }
+
         notifyListeners();
       }
 

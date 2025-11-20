@@ -1,4 +1,4 @@
-// lib/presentation/screens/user/user_panel.dart - VERSIÓN CON PESTAÑAS
+// lib/presentation/screens/user/user_panel.dart - VERSIÓN CORREGIDA
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -28,6 +28,9 @@ class _UserPanelState extends State<UserPanel> {
   // Lista de pantallas
   final List<Widget> _widgetOptions = [];
 
+  // ✅ CONTROLAR SI YA SE CARGÓ EL CATÁLOGO
+  bool _catalogLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -39,9 +42,12 @@ class _UserPanelState extends State<UserPanel> {
       const UserProfileScreen(),
     ]);
 
-    // Cargar catálogo al iniciar
+    // ✅ CARGAR SOLO UNA VEZ AL INICIAR
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadCatalogData();
+      if (!_catalogLoaded) {
+        _loadCatalogData();
+        _catalogLoaded = true;
+      }
     });
   }
 
@@ -57,10 +63,13 @@ class _UserPanelState extends State<UserPanel> {
       _selectedIndex = index;
     });
 
-    // Si se cambia a una pestaña diferente y luego se vuelve al catálogo, recargar datos
+    // ✅ SOLO RECARGAR SI ES NECESARIO Y NO ESTÁ YA CARGANDO
     if (index == 0 && _previousIndex != 0) {
-      print('🔄 Volviendo al catálogo - Recargando datos...');
-      _loadCatalogData();
+      final catalogViewModel = context.read<CatalogViewModel>();
+      if (!catalogViewModel.isLoading) {
+        print('🔄 Volviendo al catálogo - Recargando datos...');
+        _loadCatalogData();
+      }
     }
 
     // Actualizar el índice anterior
@@ -139,7 +148,10 @@ class _UserPanelState extends State<UserPanel> {
                             primaryColor: primaryColor,
                           ),
                         ),
-                      );
+                      ).then((_) {
+                        // ✅ RECARGAR DATOS AL VOLVER DE AJUSTES
+                        _loadCatalogData();
+                      });
                     },
                   )
                 ],

@@ -1,4 +1,4 @@
-// lib/data/repositories/auth_repository.dart
+// lib/data/repositories/auth_repository.dart - VERSIÓN COMPLETA
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/user_entity.dart';
@@ -12,12 +12,15 @@ class AuthRepository implements IAuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final RoleService roleService;
   final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
 
   AuthRepository({
     required this.remoteDataSource,
     required this.roleService,
     FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+    FirebaseAuth? auth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   @override
   Future<UserEntity?> signInWithEmail(String email, String password) async {
@@ -247,6 +250,39 @@ class AuthRepository implements IAuthRepository {
           return userEntity;
         } catch (e) {
           print('❌ Error obteniendo usuario por ID: $e');
+          return null;
+        }
+      },
+    );
+  }
+
+  // ✅ MÉTODO NUEVO: getCurrentUser - IMPLEMENTACIÓN FALTANTE
+  @override
+  Future<UserEntity?> getCurrentUser() async {
+    return await PerformanceManager.measure(
+      'Get Current User',
+          () async {
+        try {
+          final currentUser = _auth.currentUser;
+          if (currentUser == null) {
+            print('⚠️ No hay usuario autenticado actualmente');
+            return null;
+          }
+
+          print('🔄 Obteniendo usuario actual: ${currentUser.uid}');
+
+          // Usar getUserById para obtener los datos completos
+          final userEntity = await getUserById(currentUser.uid);
+
+          if (userEntity != null) {
+            print('✅ Usuario actual obtenido: ${userEntity.email}');
+          } else {
+            print('❌ No se pudieron obtener los datos del usuario actual');
+          }
+
+          return userEntity;
+        } catch (e) {
+          print('❌ Error obteniendo usuario actual: $e');
           return null;
         }
       },

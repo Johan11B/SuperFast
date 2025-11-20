@@ -8,4 +8,5 @@ abstract class IAuthRepository {
   Stream<UserEntity?> get authStateChanges;
   Future<void> resetPassword(String email);
   Future<UserEntity?> getUserById(String userId);
+  Future<UserEntity?> getCurrentUser();
 }

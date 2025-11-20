@@ -1,4 +1,4 @@
-// lib/presentation/viewmodels/catalog_viewmodel.dart - VERSIÓN COMPLETA ACTUALIZADA
+// lib/presentation/viewmodels/catalog_viewmodel.dart - VERSIÓN CON MUTEX
 import 'package:flutter/material.dart';
 import '../../domain/entities/business_entity.dart';
 import '../../domain/entities/product_entity.dart';
@@ -25,6 +25,9 @@ class CatalogViewModel extends ChangeNotifier {
   // ========== CONTROL DE CARGA ==========
   bool _hasLoaded = false;
 
+  // ========== CONTROL DE EJECUCIÓN CONCURRENTE ==========
+  bool _isExecuting = false;
+
   // ========== GETTERS ==========
   bool get isLoading => _isLoading;
   bool get isLoadingProducts => _isLoadingProducts;
@@ -44,7 +47,7 @@ class CatalogViewModel extends ChangeNotifier {
   }
 
   List<BusinessEntity> get filteredBusinesses {
-    List<BusinessEntity> filtered = _businesses;
+    List<BusinessEntity> filtered = List.from(_businesses); // ✅ COPIA SEGURA
 
     // Filtrar por categoría
     if (_selectedCategory != 'Todas') {
@@ -66,21 +69,21 @@ class CatalogViewModel extends ChangeNotifier {
     return filtered;
   }
 
-  // ========== CATEGORÍAS ÚNICAS DE PRODUCTOS ==========
-  List<String> get categories {
-    final allCategories = _allProducts.map((p) => p.category).toSet().toList();
-    allCategories.sort();
-    return ['Todas', ...allCategories];
-  }
-
-  // ========== MÉTODOS PRINCIPALES ==========
+  // ========== MÉTODO PRINCIPAL CORREGIDO ==========
   Future<void> loadCatalog({bool forceRefresh = false}) async {
+    // ✅ PREVENIR EJECUCIÓN CONCURRENTE
+    if (_isExecuting) {
+      print('⏳ Carga en progreso, ignorando llamada concurrente...');
+      return;
+    }
+
     // Evitar cargas múltiples simultáneas
     if (_isLoading && !forceRefresh) return;
 
     // Si ya se cargó y no es un refresh forzado, no hacer nada
     if (_hasLoaded && !forceRefresh) return;
 
+    _isExecuting = true;
     _isLoading = true;
     _errorMessage = '';
     notifyListeners();
@@ -97,24 +100,26 @@ class CatalogViewModel extends ChangeNotifier {
       }
 
       // Cargar negocios aprobados
-      _businesses = await _catalogService.getApprovedBusinesses();
+      final loadedBusinesses = await _catalogService.getApprovedBusinesses();
+      _businesses = loadedBusinesses; // ✅ ASIGNACIÓN DIRECTA
       print('✅ ${_businesses.length} negocios cargados');
 
-      // Cargar productos de todos los negocios
-      _allProducts = [];
-      for (final business in _businesses) {
+      // Cargar productos de todos los negocios - ✅ EVITAR MODIFICACIÓN DURANTE ITERACIÓN
+      final allProductsList = <ProductEntity>[];
+
+      for (final business in loadedBusinesses) { // ✅ ITERAR SOBRE LA LISTA LOCAL
         final products = await _catalogService.getBusinessProducts(business.id);
 
         // FILTRAR PRODUCTOS DUPLICADOS POR ID
         final uniqueProducts = _removeDuplicateProducts(products);
-        _allProducts.addAll(uniqueProducts);
+        allProductsList.addAll(uniqueProducts); // ✅ AGREGAR A LISTA TEMPORAL
 
         print('📦 Negocio "${business.name}": ${uniqueProducts.length} productos únicos');
       }
 
-      // ELIMINAR DUPLICADOS FINALES
-      _allProducts = _removeDuplicateProducts(_allProducts);
-      _filteredProducts = _allProducts;
+      // ✅ ASIGNACIÓN FINAL - SIN MODIFICACIÓN DURANTE ITERACIÓN
+      _allProducts = _removeDuplicateProducts(allProductsList);
+      _filteredProducts = List.from(_allProducts);
 
       _hasLoaded = true;
 
@@ -129,6 +134,7 @@ class CatalogViewModel extends ChangeNotifier {
       print('❌ Error cargando catálogo: $e');
     } finally {
       _isLoading = false;
+      _isExecuting = false;
       notifyListeners();
     }
   }
@@ -160,8 +166,8 @@ class CatalogViewModel extends ChangeNotifier {
   }
 
   void _applyFilters() {
-    // Aplicar filtros a productos
-    List<ProductEntity> filteredProducts = _allProducts;
+    // ✅ CREAR LISTA TEMPORAL PARA FILTRAR
+    List<ProductEntity> filteredProducts = List.from(_allProducts);
 
     // Filtrar por categoría
     if (_selectedCategory != 'Todas') {
@@ -197,7 +203,7 @@ class CatalogViewModel extends ChangeNotifier {
   void clearFilters() {
     _searchQuery = '';
     _selectedCategory = 'Todas';
-    _filteredProducts = _allProducts;
+    _filteredProducts = List.from(_allProducts); // ✅ COPIA SEGURA
     notifyListeners();
   }
 
@@ -236,41 +242,24 @@ class CatalogViewModel extends ChangeNotifier {
     };
   }
 
-  // ========== BÚSQUEDA ESPECÍFICA ==========
-  List<BusinessEntity> searchBusinesses(String query) {
-    if (query.isEmpty) return _businesses;
-
-    return _businesses.where((business) {
-      final nameMatch = business.name.toLowerCase().contains(query.toLowerCase());
-      final categoryMatch = business.category.toLowerCase().contains(query.toLowerCase());
-      final addressMatch = business.address.toLowerCase().contains(query.toLowerCase());
-      final descriptionMatch = business.description?.toLowerCase().contains(query.toLowerCase()) ?? false;
-
-      return nameMatch || categoryMatch || addressMatch || descriptionMatch;
-    }).toList();
+  // ========== VERIFICACIÓN DE DATOS ==========
+  void _debugBusinessStats() {
+    print('=== ESTADÍSTICAS DE EMPRESAS ===');
+    for (final business in _businesses) {
+      final stats = getBusinessStats(business.id);
+      print('🏢 ${business.name}');
+      print('   📦 Productos totales: ${stats['totalProducts']}');
+      print('   ✅ Disponibles: ${stats['availableProducts']}');
+      print('   ❌ Sin stock: ${stats['outOfStockProducts']}');
+      print('   ⚠️ Stock bajo: ${stats['lowStockProducts']}');
+      print('   💰 Valor inventario: \$${stats['totalInventoryValue'].toStringAsFixed(2)}');
+    }
+    print('================================');
   }
 
-  List<ProductEntity> searchProducts(String query) {
-    if (query.isEmpty) return _allProducts;
-
-    return _allProducts.where((product) {
-      final nameMatch = product.name.toLowerCase().contains(query.toLowerCase());
-      final categoryMatch = product.category.toLowerCase().contains(query.toLowerCase());
-      final descriptionMatch = product.description.toLowerCase().contains(query.toLowerCase());
-
-      return nameMatch || categoryMatch || descriptionMatch;
-    }).toList();
-  }
-
-  // ========== FILTRADO POR CATEGORÍA ESPECÍFICA ==========
-  List<BusinessEntity> getBusinessesByCategory(String category) {
-    if (category == 'Todas') return _businesses;
-    return _businesses.where((business) => business.category == category).toList();
-  }
-
-  List<ProductEntity> getProductsByCategory(String category) {
-    if (category == 'Todas') return _allProducts;
-    return _allProducts.where((product) => product.category == category).toList();
+  // ========== FORZAR RECARGA ==========
+  Future<void> forceRefresh() async {
+    await loadCatalog(forceRefresh: true);
   }
 
   // ========== MÉTODOS DE LIMPIEZA ==========
@@ -290,106 +279,8 @@ class CatalogViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ========== FORZAR RECARGA ==========
-  Future<void> forceRefresh() async {
-    await loadCatalog(forceRefresh: true);
-  }
-
-  // ========== VERIFICACIÓN DE DATOS ==========
-  void _debugBusinessStats() {
-    print('=== ESTADÍSTICAS DE EMPRESAS ===');
-    for (final business in _businesses) {
-      final stats = getBusinessStats(business.id);
-      print('🏢 ${business.name}');
-      print('   📦 Productos totales: ${stats['totalProducts']}');
-      print('   ✅ Disponibles: ${stats['availableProducts']}');
-      print('   ❌ Sin stock: ${stats['outOfStockProducts']}');
-      print('   ⚠️ Stock bajo: ${stats['lowStockProducts']}');
-      print('   💰 Valor inventario: \$${stats['totalInventoryValue'].toStringAsFixed(2)}');
-    }
-    print('================================');
-  }
-
-  void debugData() {
-    print('=== DEBUG CATALOG DATA ===');
-    print('Negocios: ${_businesses.length}');
-    print('Productos totales: ${_allProducts.length}');
-    print('Productos filtrados: ${_filteredProducts.length}');
-    print('Búsqueda actual: "$_searchQuery"');
-    print('Categoría seleccionada: "$_selectedCategory"');
-
-    for (final business in _businesses) {
-      final businessProducts = _allProducts.where((p) => p.businessId == business.id).toList();
-      print('🏢 ${business.name} (${business.category}): ${businessProducts.length} productos');
-      for (final product in businessProducts) {
-        print('   📦 ${product.name} - \$${product.price} (Stock: ${product.stock})');
-      }
-    }
-    print('==========================');
-  }
-
-  // ========== VALIDACIONES ==========
-  bool hasBusinessProducts(String businessId) {
-    return _allProducts.any((p) => p.businessId == businessId && p.canBeSold);
-  }
-
-  int getBusinessProductCount(String businessId) {
-    return _allProducts.where((p) => p.businessId == businessId && p.canBeSold).length;
-  }
-
-  bool isBusinessEmpty(String businessId) {
-    return !hasBusinessProducts(businessId);
-  }
-
-  // ========== ESTADO DE CARGA ESPECÍFICO ==========
-  Future<void> loadBusinessProducts(String businessId) async {
-    if (_isLoadingProducts) return;
-
-    _isLoadingProducts = true;
-    notifyListeners();
-
-    try {
-      // Recargar productos específicos del negocio
-      final products = await _catalogService.getBusinessProducts(businessId);
-
-      // Actualizar la lista de productos
-      _allProducts.removeWhere((p) => p.businessId == businessId);
-      _allProducts.addAll(products);
-
-      // Reaplicar filtros
-      _applyFilters();
-
-      print('✅ Productos del negocio $businessId actualizados: ${products.length} productos');
-    } catch (e) {
-      print('❌ Error cargando productos del negocio $businessId: $e');
-    } finally {
-      _isLoadingProducts = false;
-      notifyListeners();
-    }
-  }
-
-  // ========== ACTUALIZACIÓN SELECTIVA ==========
-  void updateBusiness(BusinessEntity updatedBusiness) {
-    final index = _businesses.indexWhere((b) => b.id == updatedBusiness.id);
-    if (index != -1) {
-      _businesses[index] = updatedBusiness;
-      notifyListeners();
-    }
-  }
-
-  void updateProduct(ProductEntity updatedProduct) {
-    final index = _allProducts.indexWhere((p) => p.id == updatedProduct.id);
-    if (index != -1) {
-      _allProducts[index] = updatedProduct;
-      _applyFilters();
-      notifyListeners();
-    }
-  }
-
-  // ========== DISPOSE ==========
   @override
   void dispose() {
-    // Limpiar recursos si es necesario
     super.dispose();
   }
 }
