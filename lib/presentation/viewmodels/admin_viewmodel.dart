@@ -1,4 +1,4 @@
-// lib/presentation/viewmodels/admin_viewmodel.dart
+// lib/presentation/viewmodels/admin_viewmodel.dart - VERSIÓN COMPLETA ACTUALIZADA
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/business_entity.dart';
@@ -448,8 +448,62 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
+  // ✅ NUEVO MÉTODO: Obtener empresa por ID de usuario (para mostrar logos en usuarios)
+  BusinessEntity? getBusinessByUserId(String userId) {
+    try {
+      return _businesses.firstWhere((business) => business.ownerId == userId);
+    } catch (e) {
+      return null;
+    }
+  }
+
   List<BusinessEntity> getBusinessesByOwner(String ownerId) {
     return _businesses.where((business) => business.ownerId == ownerId).toList();
+  }
+
+  // ✅ NUEVO MÉTODO: Cargar usuarios y empresas juntos
+  Future<void> loadUsersWithBusinesses() async {
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      await Future.wait([
+        loadUsers(),
+        loadBusinesses(),
+      ]);
+      print('✅ Usuarios y empresas cargados exitosamente');
+      print('👥 Usuarios: ${_users.length}');
+      print('🏢 Empresas: ${_businesses.length}');
+
+      // Debug: mostrar relación usuarios-empresas
+      _debugUserBusinessRelations();
+
+    } catch (e) {
+      _errorMessage = 'Error cargando usuarios y empresas: $e';
+      print('❌ Error cargando usuarios y empresas: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Debug para relaciones usuarios-empresas
+  void _debugUserBusinessRelations() {
+    print('=== RELACIONES USUARIOS-EMPRESAS ===');
+    final businessUsers = _users.where((user) => user.role == 'business').toList();
+    print('👥 Usuarios business: ${businessUsers.length}');
+
+    for (final user in businessUsers) {
+      final business = getBusinessByUserId(user.id);
+      if (business != null) {
+        print('✅ Usuario: ${user.email} -> Empresa: ${business.name}');
+        print('   🖼️ Logo URL: ${business.logoUrl}');
+      } else {
+        print('❌ Usuario: ${user.email} -> SIN EMPRESA ASOCIADA');
+      }
+    }
+    print('====================================');
   }
 
   // ========== MÉTODOS DE ESTADÍSTICAS ==========
@@ -479,6 +533,26 @@ class AdminViewModel extends ChangeNotifier {
   Future<void> refreshBusinesses() async {
     _businessesLoaded = false;
     await loadBusinesses();
+  }
+
+  // ✅ NUEVO MÉTODO: Actualizar datos específicos de un negocio
+  void updateBusinessLocally(BusinessEntity updatedBusiness) {
+    final index = _businesses.indexWhere((b) => b.id == updatedBusiness.id);
+    if (index != -1) {
+      _businesses[index] = updatedBusiness;
+      notifyListeners();
+      print('✅ Business actualizado localmente: ${updatedBusiness.name}');
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Actualizar datos específicos de un usuario
+  void updateUserLocally(UserEntity updatedUser) {
+    final index = _users.indexWhere((u) => u.id == updatedUser.id);
+    if (index != -1) {
+      _users[index] = updatedUser;
+      notifyListeners();
+      print('✅ Usuario actualizado localmente: ${updatedUser.email}');
+    }
   }
 
   // ========== MÉTODOS DE LIMPIEZA ==========
@@ -549,5 +623,38 @@ class AdminViewModel extends ChangeNotifier {
       return adminCount > 1;
     }
     return true;
+  }
+
+  // ✅ NUEVO MÉTODO: Verificar si un usuario tiene empresa
+  bool userHasBusiness(String userId) {
+    return _businesses.any((business) => business.ownerId == userId);
+  }
+
+  // ✅ NUEVO MÉTODO: Obtener estadísticas de usuarios con/sin empresa
+  Map<String, int> getUserBusinessStats() {
+    final businessUsers = _users.where((user) => user.role == 'business').toList();
+    final usersWithBusiness = businessUsers.where((user) => userHasBusiness(user.id)).length;
+    final usersWithoutBusiness = businessUsers.length - usersWithBusiness;
+
+    return {
+      'totalBusinessUsers': businessUsers.length,
+      'usersWithBusiness': usersWithBusiness,
+      'usersWithoutBusiness': usersWithoutBusiness,
+    };
+  }
+
+  // ✅ NUEVO MÉTODO: Forzar recarga completa
+  Future<void> forceRefreshAll() async {
+    _usersLoaded = false;
+    _businessesLoaded = false;
+    _users.clear();
+    _businesses.clear();
+    await loadUsersWithBusinesses();
+  }
+
+  @override
+  void dispose() {
+    // Limpiar cualquier suscripción si es necesario
+    super.dispose();
   }
 }

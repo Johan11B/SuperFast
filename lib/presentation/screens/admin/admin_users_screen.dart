@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
-import '../../viewmodels/business_viewmodel.dart'; // ✅ AGREGAR
 import '../../../domain/entities/user_entity.dart';
+import '../../../domain/entities/business_entity.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -30,34 +30,46 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         _isLoading = true;
       });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<AdminViewModel>().loadUsers().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final adminViewModel = context.read<AdminViewModel>();
+
+        try {
+          // Si ya tenemos datos cargados, no recargar
+          if (adminViewModel.users.isEmpty || adminViewModel.businesses.isEmpty) {
+            await adminViewModel.loadUsersWithBusinesses();
+          } else {
+            print('✅ Datos ya cargados, usando caché');
+          }
+
           if (mounted) {
             setState(() {
               _initialLoadCompleted = true;
               _isLoading = false;
             });
           }
-        }).catchError((error) {
+        } catch (error) {
           print('❌ Error en carga inicial: $error');
           if (mounted) {
             setState(() {
               _isLoading = false;
             });
           }
-        });
+        }
       });
     }
   }
 
   Future<void> _reloadUsers() async {
+    if (_isLoading) return;
+
     print('🔄 Recarga manual de usuarios...');
     setState(() {
       _isLoading = true;
     });
 
     try {
-      await context.read<AdminViewModel>().loadUsers();
+      final adminViewModel = context.read<AdminViewModel>();
+      await adminViewModel.loadUsersWithBusinesses();
     } catch (error) {
       print('❌ Error al recargar usuarios: $error');
     } finally {
@@ -326,15 +338,19 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  // ✅ CORREGIDO: Ahora usa BusinessViewModel para obtener el logo de la empresa
   Widget _buildUserCard(UserEntity user, AdminViewModel adminViewModel) {
+    // Obtener la empresa del usuario si es business
+    final business = user.role == 'business'
+        ? adminViewModel.getBusinessByUserId(user.id)
+        : null;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
       child: ListTile(
-        // ✅ CORREGIDO: Para empresas, mostrar logo de la empresa
+        // Para empresas, mostrar logo de la empresa
         leading: user.role == 'business'
-            ? _buildBusinessLogo(user)
+            ? _buildBusinessLogo(business)
             : CircleAvatar(
           radius: 25,
           backgroundColor: _getRoleColor(user.role),
@@ -385,8 +401,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ),
                   ),
                 ),
-                // ✅ AGREGADO: Indicador de empresa si tiene información
-                if (user.hasBusinessInfo)
+                // Indicador de empresa si tiene información
+                if (user.hasBusinessInfo || business != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -394,9 +410,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.orange),
                     ),
-                    child: const Text(
-                      '🏢 Empresa',
-                      style: TextStyle(
+                    child: Text(
+                      business?.name ?? '🏢 Empresa',
+                      style: const TextStyle(
                         fontSize: 10,
                         color: Colors.orange,
                       ),
@@ -458,50 +474,39 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ],
         ),
         onTap: () {
-          _showUserDetails(user);
+          _showUserDetails(user, adminViewModel);
         },
       ),
     );
   }
 
-  // ✅ NUEVO: Widget para mostrar logo de empresa para usuarios business
-  Widget _buildBusinessLogo(UserEntity user) {
-    return Consumer<BusinessViewModel>(
-      builder: (context, businessViewModel, child) {
-        // Buscar la empresa de este usuario
-        final business = businessViewModel.currentBusiness;
-        final userBusiness = business != null && business.ownerId == user.id
-            ? business
-            : null;
-
-        return Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            image: userBusiness?.logoUrl != null && userBusiness!.logoUrl!.isNotEmpty
-                ? DecorationImage(
-              image: NetworkImage(userBusiness.logoUrl!),
-              fit: BoxFit.cover,
-            )
-                : null,
-            border: Border.all(
-              color: Colors.orange.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: userBusiness?.logoUrl == null || userBusiness!.logoUrl!.isEmpty
-              ? Center(
-            child: Icon(
-              Icons.business,
-              color: Colors.orange,
-              size: 24,
-            ),
-          )
-              : null,
-        );
-      },
+  Widget _buildBusinessLogo(BusinessEntity? business) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        image: business?.logoUrl != null && business!.logoUrl!.isNotEmpty
+            ? DecorationImage(
+          image: NetworkImage(business.logoUrl!),
+          fit: BoxFit.cover,
+        )
+            : null,
+        border: Border.all(
+          color: Colors.orange.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: business?.logoUrl == null || business!.logoUrl!.isEmpty
+          ? Center(
+        child: Icon(
+          Icons.business,
+          color: Colors.orange,
+          size: 24,
+        ),
+      )
+          : null,
     );
   }
 
@@ -537,7 +542,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   void _handleUserAction(String action, UserEntity user, AdminViewModel adminViewModel) {
     switch (action) {
       case 'view_details':
-        _showUserDetails(user);
+        _showUserDetails(user, adminViewModel);
         break;
       case 'change_role':
         _showChangeRoleDialog(user, adminViewModel);
@@ -692,7 +697,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  void _showUserDetails(UserEntity user) {
+  void _showUserDetails(UserEntity user, AdminViewModel adminViewModel) {
+    // Obtener la empresa del usuario si es business
+    final business = user.role == 'business'
+        ? adminViewModel.getBusinessByUserId(user.id)
+        : null;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -706,37 +716,28 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               Center(
                 child: Column(
                   children: [
-                    // ✅ CORREGIDO: Mostrar logo de empresa si es business
+                    // Mostrar logo de empresa si es business
                     if (user.role == 'business')
-                      Consumer<BusinessViewModel>(
-                        builder: (context, businessViewModel, child) {
-                          final business = businessViewModel.currentBusiness;
-                          final userBusiness = business != null && business.ownerId == user.id
-                              ? business
-                              : null;
-
-                          return Container(
-                            width: 80,
-                            height: 80,
-                            margin: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              image: userBusiness?.logoUrl != null && userBusiness!.logoUrl!.isNotEmpty
-                                  ? DecorationImage(
-                                image: NetworkImage(userBusiness.logoUrl!),
-                                fit: BoxFit.cover,
-                              )
-                                  : null,
-                              border: Border.all(color: Colors.grey.shade300),
-                              color: userBusiness?.logoUrl == null || userBusiness!.logoUrl!.isEmpty
-                                  ? Colors.orange.withOpacity(0.1)
-                                  : null,
-                            ),
-                            child: userBusiness?.logoUrl == null || userBusiness!.logoUrl!.isEmpty
-                                ? const Icon(Icons.business, size: 40, color: Colors.orange)
-                                : null,
-                          );
-                        },
+                      Container(
+                        width: 80,
+                        height: 80,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: business?.logoUrl != null && business!.logoUrl!.isNotEmpty
+                              ? DecorationImage(
+                            image: NetworkImage(business.logoUrl!),
+                            fit: BoxFit.cover,
+                          )
+                              : null,
+                          border: Border.all(color: Colors.grey.shade300),
+                          color: business?.logoUrl == null || business!.logoUrl!.isEmpty
+                              ? Colors.orange.withOpacity(0.1)
+                              : null,
+                        ),
+                        child: business?.logoUrl == null || business!.logoUrl!.isEmpty
+                            ? const Icon(Icons.business, size: 40, color: Colors.orange)
+                            : null,
                       )
                     else
                       CircleAvatar(
@@ -769,8 +770,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               if (user.photoUrl != null && user.photoUrl!.isNotEmpty)
                 _buildDetailItem('Foto URL:', user.photoUrl!),
 
-              // ✅ AGREGADO: Información de empresa si existe
-              if (user.hasBusinessInfo) ...[
+              // Información de empresa si existe
+              if (user.hasBusinessInfo || business != null) ...[
                 const SizedBox(height: 16),
                 const Text(
                   'Información de Empresa:',
@@ -780,11 +781,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (user.businessName != null) _buildDetailItem('Nombre Empresa:', user.businessName!),
-                if (user.businessEmail != null) _buildDetailItem('Email Empresa:', user.businessEmail!),
-                if (user.businessCategory != null) _buildDetailItem('Categoría:', user.businessCategory!),
-                if (user.businessAddress != null) _buildDetailItem('Dirección:', user.businessAddress!),
-                if (user.businessPhone != null) _buildDetailItem('Teléfono:', user.businessPhone!),
+                if (business != null) _buildDetailItem('Nombre Empresa:', business.name),
+                if (business != null) _buildDetailItem('Email Empresa:', business.email),
+                if (business != null) _buildDetailItem('Categoría:', business.category),
+                if (business != null) _buildDetailItem('Dirección:', business.address),
+                if (business != null) _buildDetailItem('Teléfono:', business.phone ?? 'No disponible'),
+                if (business != null && business.logoUrl != null)
+                  _buildDetailItem('Logo:', business.logoUrl!),
               ],
 
               const SizedBox(height: 16),
