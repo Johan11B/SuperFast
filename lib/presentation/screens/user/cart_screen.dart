@@ -1,11 +1,12 @@
-// lib/presentation/screens/user/cart_screen.dart
+// cart_screen.dart - VERSIÓN COMPLETA CORREGIDA
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../domain/entities/product_entity.dart';
-import '../../../domain/entities/order_entity.dart'; // ✅ AGREGAR ESTE IMPORT
 import '../../viewmodels/cart_viewmodel.dart';
 import '../../viewmodels/order_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/catalog_viewmodel.dart';
+import '../../../domain/entities/order_entity.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -28,6 +29,9 @@ class _CartScreenState extends State<CartScreen> {
   void _loadUserData() {
     final authViewModel = context.read<AuthViewModel>();
     final user = authViewModel.currentUser;
+
+    // Podrías cargar la dirección por defecto del usuario aquí
+    _addressController.text = '';
   }
 
   @override
@@ -42,6 +46,7 @@ class _CartScreenState extends State<CartScreen> {
     final cartViewModel = context.watch<CartViewModel>();
     final orderViewModel = context.read<OrderViewModel>();
     final authViewModel = context.read<AuthViewModel>();
+    final catalogViewModel = context.read<CatalogViewModel>();
 
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +56,7 @@ class _CartScreenState extends State<CartScreen> {
       ),
       body: cartViewModel.items.isEmpty
           ? _buildEmptyCart()
-          : _buildCartContent(cartViewModel, orderViewModel, authViewModel),
+          : _buildCartContent(cartViewModel, orderViewModel, authViewModel, catalogViewModel),
     );
   }
 
@@ -74,7 +79,7 @@ class _CartScreenState extends State<CartScreen> {
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // Volver al catálogo
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
@@ -87,7 +92,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildCartContent(CartViewModel cartViewModel, OrderViewModel orderViewModel, AuthViewModel authViewModel) {
+  Widget _buildCartContent(CartViewModel cartViewModel, OrderViewModel orderViewModel, AuthViewModel authViewModel, CatalogViewModel catalogViewModel) {
     return Column(
       children: [
         // LISTA DE PRODUCTOS
@@ -102,7 +107,7 @@ class _CartScreenState extends State<CartScreen> {
         ),
 
         // RESUMEN Y CHECKOUT
-        _buildOrderSummary(cartViewModel, orderViewModel, authViewModel),
+        _buildOrderSummary(cartViewModel, orderViewModel, authViewModel, catalogViewModel),
       ],
     );
   }
@@ -192,7 +197,7 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  Widget _buildOrderSummary(CartViewModel cartViewModel, OrderViewModel orderViewModel, AuthViewModel authViewModel) {
+  Widget _buildOrderSummary(CartViewModel cartViewModel, OrderViewModel orderViewModel, AuthViewModel authViewModel, CatalogViewModel catalogViewModel) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -221,7 +226,7 @@ class _CartScreenState extends State<CartScreen> {
           // BOTÓN DE PEDIDO
           ElevatedButton(
             onPressed: () {
-              _placeOrder(cartViewModel, orderViewModel, authViewModel);
+              _placeOrder(cartViewModel, orderViewModel, authViewModel, catalogViewModel);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
@@ -429,7 +434,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  void _placeOrder(CartViewModel cartViewModel, OrderViewModel orderViewModel, AuthViewModel authViewModel) async {
+  void _placeOrder(CartViewModel cartViewModel, OrderViewModel orderViewModel, AuthViewModel authViewModel, CatalogViewModel catalogViewModel) async {
     final user = authViewModel.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -455,14 +460,22 @@ class _CartScreenState extends State<CartScreen> {
       }
     }
 
+    // OBTENER EL NOMBRE REAL DEL NEGOCIO - CORRECCIÓN IMPORTANTE
+    final businessId = cartViewModel.items.first.product.businessId;
+    final business = catalogViewModel.getBusinessById(businessId);
+
+    if (business == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: No se pudo obtener información del negocio')),
+      );
+      return;
+    }
+
+    final businessName = business.name; // ✅ NOMBRE REAL DEL NEGOCIO
+
     // Crear el pedido
     final orderId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    // Por simplicidad, asumimos que todos los productos son del mismo negocio
-    final businessId = cartViewModel.items.first.product.businessId;
-    final businessName = 'Negocio'; // Aquí necesitarías obtener el nombre del negocio
-
-    // ✅ CORREGIDO: Usar OrderItem del dominio
     final orderItems = cartViewModel.items.map((item) => OrderItem(
       productId: item.product.id,
       productName: item.product.name,
@@ -472,13 +485,12 @@ class _CartScreenState extends State<CartScreen> {
       modifications: item.modifications,
     )).toList();
 
-    // ✅ CORREGIDO: Usar OrderEntity del dominio
     final order = OrderEntity(
       id: orderId,
       userId: user.id,
       businessId: businessId,
-      userName: user.name ?? user.email,
-      businessName: businessName,
+      userName: user.name ?? user.email.split('@')[0], // Nombre del usuario o email
+      businessName: businessName, // ✅ NOMBRE REAL DEL NEGOCIO
       status: 'pending',
       totalAmount: cartViewModel.totalAmount,
       subtotal: cartViewModel.subtotal,
@@ -502,7 +514,7 @@ class _CartScreenState extends State<CartScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context); // Volver al catálogo
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

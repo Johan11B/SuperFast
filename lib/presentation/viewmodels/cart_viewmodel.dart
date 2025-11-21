@@ -44,8 +44,8 @@ class CartViewModel with ChangeNotifier {
 
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
   double get subtotal => _items.fold(0.0, (sum, item) => sum + item.totalPrice);
-  double get deliveryFee => _items.isNotEmpty ? 2.99 : 0.0; // Fee fijo por ahora
-  double get tax => subtotal * 0.10; // 10% de impuesto
+  double get deliveryFee => _items.isNotEmpty ? 1000 : 0.0; // Fee fijo por ahora
+  double get tax => subtotal * 0.01; // 10% de impuesto
   double get totalAmount => subtotal + deliveryFee + tax;
 
   // ========== OPERACIONES DEL CARRITO ==========

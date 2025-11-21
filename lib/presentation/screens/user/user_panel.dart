@@ -27,6 +27,11 @@ class _UserPanelState extends State<UserPanel> {
   int _selectedIndex = 0;
   int _previousIndex = 0;
 
+  void changeTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
   // Lista de pantallas
   final List<Widget> _widgetOptions = [];
 

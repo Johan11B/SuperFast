@@ -53,16 +53,6 @@ class _UserCatalogScreenState extends State<UserCatalogScreen> {
             snap: true,
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.shopping_cart),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Carrito - Próximamente')),
-                  );
-                },
-              ),
-            ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(60),
               child: Padding(

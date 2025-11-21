@@ -1,4 +1,4 @@
-// lib/presentation/screens/admin/admin_panel.dart
+// admin_panel.dart - VERSIÓN CORREGIDA
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
@@ -10,7 +10,7 @@ import '../performance/performance_results_page.dart';
 import 'admin_users_screen.dart';
 import 'admin_businesses_screen.dart';
 import 'admin_orders_screen.dart';
-import 'admin_reports_screen.dart';
+import 'admin_statistics_screen.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -23,16 +23,38 @@ class _AdminPanelState extends State<AdminPanel> {
   final Color primaryColor = const Color(0xFF008C9E);
   final Color scaffoldBackgroundColor = const Color(0xFFEFEFEF);
 
-  // ✅ AGREGADO: Controlador para manejar el índice anterior
+  // ✅ MEJORADO: Control de carga inicial
+  bool _initialLoadCompleted = false;
   int _previousIndex = 0;
+
+  // ✅ CORREGIDO: PageStorageBucket como variable de instancia
+  final PageStorageBucket _pageStorageBucket = PageStorageBucket();
 
   @override
   void initState() {
     super.initState();
-    // Cargar datos del dashboard al iniciar - MEJORADO
+    print('🚀 AdminPanel iniciado');
+
+    // ✅ CORREGIDO: Usar un delay más conservador
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('🚀 AdminPanel iniciado - Cargando datos...');
-      context.read<AdminViewModel>().loadDashboardData();
+      _loadInitialData();
+    });
+  }
+
+  void _loadInitialData() {
+    if (_initialLoadCompleted) {
+      print('⏳ AdminPanel - Carga inicial ya completada');
+      return;
+    }
+
+    print('📥 AdminPanel - Cargando datos iniciales...');
+    context.read<AdminViewModel>().loadDashboardData().then((_) {
+      if (mounted) {
+        setState(() {
+          _initialLoadCompleted = true;
+        });
+        print('✅ AdminPanel - Carga inicial completada');
+      }
     });
   }
 
@@ -120,18 +142,7 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
 
       // Body con diferentes pantallas según el índice
-      body: adminViewModel.isLoading
-          ? const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Cargando datos del panel...'),
-          ],
-        ),
-      )
-          : _widgetOptions.elementAt(adminViewModel.selectedIndex),
+      body: _buildBody(adminViewModel),
 
       // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
@@ -141,7 +152,6 @@ class _AdminPanelState extends State<AdminPanel> {
         unselectedItemColor: Colors.white.withOpacity(0.7),
         currentIndex: adminViewModel.selectedIndex,
         onTap: (index) {
-          // ✅ CORREGIDO: Manejo mejorado del cambio de pestañas
           _handleTabChange(index, adminViewModel);
         },
         selectedFontSize: 12,
@@ -157,34 +167,62 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
-  // ✅ NUEVO MÉTODO: Manejar cambio de pestañas
+  Widget _buildBody(AdminViewModel adminViewModel) {
+    // ✅ CORREGIDO: Mostrar loading solo en el dashboard
+    if (adminViewModel.selectedIndex == 0 && adminViewModel.isLoading && !_initialLoadCompleted) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Cargando datos del panel...'),
+          ],
+        ),
+      );
+    }
+
+    return IndexedStack(
+      index: adminViewModel.selectedIndex,
+      children: _widgetOptions,
+    );
+  }
+
+  // ✅ CORREGIDO: Manejo mejorado del cambio de pestañas
   void _handleTabChange(int index, AdminViewModel adminViewModel) {
     final currentIndex = adminViewModel.selectedIndex;
+
+    // Evitar cambiar a la misma pestaña
+    if (currentIndex == index) return;
 
     // Cambiar la pestaña primero
     adminViewModel.changeTab(index);
 
-    // Si se cambia a una pestaña diferente y luego se vuelve al dashboard, recargar datos
+    // Solo recargar datos si se vuelve al dashboard desde otra pestaña
     if (index == 0 && _previousIndex != 0) {
-      print('🔄 Volviendo al dashboard - Recargando datos...');
-      adminViewModel.refreshData();
+      print('🔄 Volviendo al dashboard desde otra pestaña');
+      // Usar un pequeño delay para evitar conflictos con la animación
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          adminViewModel.refreshData();
+        }
+      });
     }
 
-    // Actualizar el índice anterior
     _previousIndex = currentIndex;
   }
 
-  // Widgets para las diferentes pantallas
-  final List<Widget> _widgetOptions = <Widget>[
+  // ✅ CORREGIDO: Usar IndexedStack en lugar de PageStorage para mantener estado
+  final List<Widget> _widgetOptions = [
     const _AdminDashboardContent(),
     const AdminUsersScreen(),
     const AdminBusinessesScreen(),
     const AdminOrdersScreen(),
-    const AdminReportsScreen(),
+    const AdminStatisticsScreen(),
   ];
 }
 
-// CONTENIDO DEL DASHBOARD
+// CONTENIDO DEL DASHBOARD (el resto del código permanece igual)
 class _AdminDashboardContent extends StatelessWidget {
   const _AdminDashboardContent();
 
@@ -197,7 +235,6 @@ class _AdminDashboardContent extends StatelessWidget {
     final activities = adminViewModel.getRecentActivity();
 
     return RefreshIndicator(
-      // ✅ AGREGADO: Permitir recargar arrastrando hacia abajo
       onRefresh: () async {
         await adminViewModel.refreshData();
       },
@@ -218,7 +255,6 @@ class _AdminDashboardContent extends StatelessWidget {
                     color: Colors.black87,
                   ),
                 ),
-                // ✅ AGREGADO: Botón de recarga manual
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Color(0xFF008C9E)),
                   onPressed: () {
@@ -380,7 +416,6 @@ class _AdminDashboardContent extends StatelessWidget {
     );
   }
 
-  // ✅ NUEVO MÉTODO: Banner para mensajes
   Widget _buildMessageBanner(String message, Color color) {
     return Container(
       width: double.infinity,
@@ -412,7 +447,6 @@ class _AdminDashboardContent extends StatelessWidget {
     );
   }
 
-  // ✅ NUEVO MÉTODO: Formatear tiempo
   String _formatTime(dynamic time) {
     if (time is DateTime) {
       final now = DateTime.now();
