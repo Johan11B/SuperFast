@@ -191,6 +191,18 @@ class OrderViewModel with ChangeNotifier {
 
       await _orderService.updateOrderStatus(orderId, status);
 
+      // ✅ ACTUALIZAR STOCK CUANDO EL PEDIDO ES CONFIRMADO
+      if (status == 'confirmed') {
+        await _orderService.updateProductStockOnOrder(orderId);
+      }
+      if (status == 'cancelled') {
+        // Revertir el stock si el pedido ya estaba confirmado
+        final order = getOrderById(orderId);
+        if (order != null && order.isConfirmed) {
+          await _orderService.revertProductStockOnCancellation(orderId);
+        }
+      }
+
       // Actualizar en listas locales
       _updateOrderInLists(orderId, (order) => order.copyWith(status: status));
 
