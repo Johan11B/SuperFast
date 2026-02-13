@@ -350,9 +350,6 @@ class _BusinessProductsScreenState extends State<BusinessProductsScreen> {
             ),
           ],
         ),
-        onTap: () {
-          _showProductDetails(product, businessViewModel);
-        },
       ),
     );
   }

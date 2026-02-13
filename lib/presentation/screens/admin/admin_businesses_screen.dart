@@ -254,7 +254,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
                   child: Text(
                     business.category,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: Colors.blue,
                     ),
                   ),

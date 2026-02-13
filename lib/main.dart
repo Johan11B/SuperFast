@@ -31,8 +31,8 @@ void main() async {
 
   // 2. Configurar e inicializar Supabase
   await Supabase.initialize(
-    url: 'https://oebhuvdxizxcowcxmngk.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYmh1dmR4aXp4Y293Y3htbmdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDYzNDgsImV4cCI6MjA3ODk4MjM0OH0.1-tAqkSyRYGWXPiZ96lbCP0urDZZuj7eN8UfEEI5Ieo',
+    url: const String.fromEnvironment('SUPABASE_URL'),
+    anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
   );
 
   runApp(const SuperFastApp());
